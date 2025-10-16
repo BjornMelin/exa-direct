@@ -10,6 +10,7 @@ import requests
 from exa_py import Exa
 
 _API_BASE = "https://api.exa.ai"
+_RESEARCH_BASE = f"{_API_BASE}/research/v1"
 
 
 class ExaService:
@@ -106,11 +107,16 @@ class ExaService:
 
     def research_get(self, *, research_id: str, events: bool = False) -> dict[str, Any]:
         """Get a research task (optionally with events)."""
-        url = f"{_API_BASE}/research/v1/research/v1/{research_id}"
+        url = f"{_RESEARCH_BASE}/{research_id}"
         params: dict[str, Any] = {}
         if events:
             params["events"] = "true"
-        resp = self._session.get(url, params=params, timeout=30)
+        resp = self._session.get(
+            url,
+            headers={"x-api-key": self._api_key},
+            params=params,
+            timeout=30,
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -135,22 +141,21 @@ class ExaService:
 
     def research_stream(self, *, research_id: str) -> Iterator[str]:
         """Yield SSE lines for a research task stream endpoint."""
-        url = f"{_API_BASE}/research/v1/research/v1/{research_id}"
+        url = f"{_RESEARCH_BASE}/{research_id}"
         with self._session.get(
             url,
-            headers={"Accept": "text/event-stream"},
+            headers={
+                "Accept": "text/event-stream",
+                "x-api-key": self._api_key,
+            },
             params={"stream": "true"},
             stream=True,
             timeout=300,
         ) as resp:
             resp.raise_for_status()
             for raw in resp.iter_lines(decode_unicode=True):
-                if raw is None:
-                    continue
-                line = raw.strip()
-                if not line:
-                    continue
-                yield line
+                if raw and (line := raw.strip()):
+                    yield line
 
     # --- Context (Exa Code) ---
 
@@ -175,12 +180,11 @@ def resolve_api_key(explicit: str | None) -> str:
     """Resolve the Exa API key from CLI flag or `EXA_API_KEY`."""
     if explicit:
         return explicit
-    env_key = os.getenv("EXA_API_KEY")
-    if not env_key:
-        raise RuntimeError(
-            "EXA_API_KEY is required; set the environment variable or use --api-key"
-        )
-    return env_key
+    if env_key := os.getenv("EXA_API_KEY"):
+        return env_key
+    raise RuntimeError(
+        "EXA_API_KEY is required; set the environment variable or use --api-key"
+    )
 
 
 def create_service(api_key: str) -> ExaService:

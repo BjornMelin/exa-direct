@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 
@@ -32,7 +33,6 @@ def save_json(path: str, data: Any, *, pretty: bool = True) -> None:
         pretty: Whether to indent output for readability.
 
     """
-    from pathlib import Path
     target = Path(path)
     if pretty:
         payload = json.dumps(data, indent=2, ensure_ascii=False)

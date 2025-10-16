@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -259,8 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _dispatch(service: client.ExaService, args: argparse.Namespace) -> dict[str, Any] | None:
+def _dispatch(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
     """Route to the correct service call based on the command."""
+    # pylint: disable=too-many-branches,too-many-return-statements
     command = args.command
     if command == "search":
         params: dict[str, Any] = {
@@ -348,19 +353,15 @@ def _read_arg_or_file(value: str) -> str:
 
     Args:
         value: Either plain text or a token like '@path/to/file'.
-
     """
     if value.startswith("@"):
         path = value[1:]
-        from pathlib import Path
         return Path(path).read_text(encoding="utf-8")
     return value
 
 
 def _read_json_file(path: str) -> dict[str, Any]:
     """Read a JSON file into a dict."""
-    import json  # local import to keep CLI startup fast
-    from pathlib import Path
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 

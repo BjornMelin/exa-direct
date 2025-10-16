@@ -45,7 +45,10 @@ class DummyResearchService:
         self.calls.append(
             {"method": "research_get", "id": research_id, "events": events}
         )
-        return {"id": research_id, "status": "running"}
+        payload: dict[str, Any] = {"id": research_id, "status": "running"}
+        if events:
+            payload["events"] = [{"event": "task_submitted"}]
+        return payload
 
     def research_list(self, *, limit: int | None, cursor: str | None) -> dict[str, Any]:
         """Record a research_list invocation."""
@@ -109,9 +112,7 @@ def test_research_start(
     assert dummy_service.calls[0]["method"] == "research_start"
 
 
-def test_research_get_list_poll(
-    dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_research_get_list_poll(dummy_service: DummyResearchService) -> None:
     """CLI subcommands get, list, poll should fan out to service methods."""
     assert cli.main(["research", "get", "--id", "abc"]) == 0
     assert cli.main(["research", "list", "--limit", "5"]) == 0
@@ -130,6 +131,20 @@ def test_research_stream(
     output = capsys.readouterr().out.strip().splitlines()
     assert output[0].startswith("event: running")
     assert output[-1].startswith("event: completed")
+    assert dummy_service.calls[-1]["method"] == "research_stream"
+
+
+def test_research_get_with_events(
+    dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`research get --events` should request event logs and print them."""
+    exit_code = cli.main(["research", "get", "--id", "abc", "--events"])
+    assert exit_code == 0
+    call = dummy_service.calls[-1]
+    assert call["method"] == "research_get"
+    assert call["events"] is True
+    out = json.loads(capsys.readouterr().out)
+    assert out["events"][0]["event"] == "task_submitted"
 
 
 def test_context_query(
@@ -139,3 +154,4 @@ def test_context_query(
     exit_code = cli.main(["context", "query", "--query", "pandas groupby"])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"response": "code examples here"}
+    assert dummy_service.calls[-1]["method"] == "context"
