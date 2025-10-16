@@ -1,0 +1,135 @@
+[project]
+name = "exa-direct"
+version = "0.1.0"
+description = "Minimal CLI for direct Exa API usage (search, contents, find-similar, answer, research, context)."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "exa-direct", email = "devnull@example.com"}]
+dependencies = [
+  "exa_py>=1.0.0",
+  "requests>=2.31.0",
+]
+
+[project.urls]
+Homepage = "https://exa.ai/"
+Documentation = "https://docs.exa.ai/reference/getting-started"
+
+[project.scripts]
+exa = "exa_direct.cli:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    # Core Python style and syntax
+    "D",  # pydocstyle - docstring formatting
+    "E",  # pycodestyle - syntax errors
+    "W",  # pycodestyle - warnings
+    "F",  # pyflakes - undefined names, unused imports
+    "I",  # isort - import sorting
+    "UP", # pyupgrade - Python version upgrades
+
+    # Code quality and bug detection
+    "B",   # flake8-bugbear - bug detection
+    "C4",  # flake8-comprehensions - list/dict comprehensions
+    "SIM", # flake8-simplify - code simplification
+    "RET", # flake8-return - return statement issues
+    "RUF", # Ruff-specific rules
+
+    # Best practices and modernization
+    "PTH",  # flake8-use-pathlib - pathlib usage
+    "PIE",  # flake8-pie - miscellaneous fixes
+    "ERA",  # eradicate - remove commented code
+    "PD",   # pandas-vet - pandas best practices
+    "NPY",  # NumPy-specific rules
+    "PERF", # perflint - performance issues
+    "FURB", # refurb - code modernization
+
+    # Additional rules for stricter Google styling
+    "A",   # flake8-builtins - shadowing builtins
+    "BLE", # flake8-blind-except - bare except clauses
+    "COM", # flake8-commas - trailing commas
+    "FBT", # flake8-boolean-trap - boolean positional args
+    "ICN", # flake8-import-conventions - import naming
+    "ISC", # flake8-implicit-str-concat - implicit string concatenation
+    "Q",   # flake8-quotes - quote consistency
+    "SLF", # flake8-self - private member access
+
+    # Logging and debugging
+    "LOG", # flake8-logging-format - logging format
+    "T10", # flake8-debugger - debugger statements
+    "T20", # flake8-print - print statements
+
+    # Exception handling
+    "TRY", # tryceratops - exception handling
+]
+
+ignore = [
+    "S101",    # assert statements in tests
+    "S108",    # insecure temp file usage (acceptable in tests)
+    "S311",    # pseudo-random generators (acceptable for tests/non-crypto)
+    "T20",     # print statements in CLI
+    "COM812",  # trailing comma missing (formatter handles)
+    "COM819",  # trailing comma prohibited
+    "TRY003",  # Long messages outside exception class
+    "ERA001",  # commented out code (too noisy)
+    "TRY301",  # Raise to an inner function
+    "TRY300",  # Consider moving to else (can change semantics)
+    "RET505",  # superfluous-else-return
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "SLF001",  # private-member-access
+    "TC001",   # typing-only-first-party-import
+    "TC002",   # typing-only-third-party-import
+    "TC003",   # typing-only-standard-library-import
+    "SIM300",  # yoda-conditions
+    "C408",    # unnecessary-collection-call
+    "FBT001",  # boolean-type-hint-positional-argument
+    "FBT002",  # boolean-default-value-positional-argument
+    "FBT003",  # boolean-default-value-positional-argument
+]
+
+fixable = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test files - more permissive
+"tests/**/*" = [
+    "S101",   # Allow assert statements
+    "ARG001", # Allow unused arguments
+    "F821",   # Allow undefined names in test mocking contexts
+]
+
+[tool.pylint]
+disable = []
+good-names = ["id","url","q","rc"]
+max-line-length = 88
+ignored-modules = ["requests", "exa_py", "pytest"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+exclude = [
+  "**/.venv",
+  "**/site-packages",
+  "/home/bjorn/.local/share/uv/python/**",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
