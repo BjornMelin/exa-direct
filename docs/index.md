@@ -5,9 +5,9 @@ Documentation is organized for end users and developers.
 
 ## User Guide
 
-- **Quickstart:** [Quickstart](user/quickstart.md)
-- **Commands & Examples:** [Commands & Examples](user/commands.md)
-- **Troubleshooting:** [Troubleshooting](user/troubleshooting.md)
+- **Quickstart:** [Quickstart](users/quickstart.md)
+- **Commands & Examples:** [Commands & Examples](users/commands.md)
+- **Troubleshooting:** [Troubleshooting](users/troubleshooting.md)
 
 ## Developer Guide
 
