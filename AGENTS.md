@@ -58,7 +58,6 @@
   - `exa answer --query "What changed in Exa 2.0?" --pretty`
 - Research (Create with schema + fast):
   - `exa research start --instructions @examples/research_instructions.md --schema @examples/research_schema.json --model exa-research-fast --pretty`
-    --schema @examples/research_schema.json --model exa-research-fast --pretty`
 - Research (Get/Events):
   - `exa research get --id <researchId> --events --pretty`
 - Research (Poll with preset):
