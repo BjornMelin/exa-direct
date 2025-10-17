@@ -1,18 +1,18 @@
 # Architecture
 
 ## Goals
-- Direct Exa API usage (no MCP) for Search, Contents, Find Similar, Answer, Research (Create/Get/List + Poll + SSE), and Context.
+- Direct Exa API usage (no MCP) for Search, Contents, Find Similar, Answer, Research (Create/Get/List + Poll + Stream), and Context.
 - Lightweight CLI with JSON stdout and minimal dependencies.
 
 ## Components
 - `src/exa_direct/cli.py`: argparse-based command dispatcher; prints JSON; supports `@file` inputs.
-- `src/exa_direct/client.py`: thin service layer using `exa_py` for convenience and `requests` for REST/SSE.
+- `src/exa_direct/client.py`: thin service layer using `exa_py` for all operations (typed stream for Research).
 - `src/exa_direct/printing.py`: output helpers.
 - `scripts/exa.sh`: cURL helper functions for quick shell usage.
 
 ## Data Flow
 - CLI parses flags → constructs parameters → calls `ExaService` methods → prints JSON (and saves if requested).
-- For Research SSE: CLI streams lines as received; polling uses SDK helper.
+- For Research stream: CLI emits JSON-lines using SDK typed events; polling uses SDK helper defaults.
 
 ## Error Handling
 - HTTP: status code and body emitted to stderr; exit code 1.
@@ -21,7 +21,7 @@
 
 ## Dependencies
 - `exa_py` for supported methods (search, find_similar, answer, research helpers, etc.).
-- `requests` for REST and streaming SSE.
+- `requests` for REST (Context endpoint). Research streaming uses the SDK.
 
 ## Non-Goals
 - MCP server operation, policy gateways, or enterprise governance.

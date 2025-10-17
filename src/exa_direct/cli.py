@@ -14,6 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import httpx
 import requests
 
 from . import client
@@ -70,7 +71,7 @@ def _register_search(
     search_parser.add_argument(
         "--type",
         dest="type_",
-        choices=["auto", "neural", "keyword", "fast"],
+        choices=["auto", "neural", "keyword", "fast", "hybrid", "deep"],
         help="Search type",
     )
     search_parser.add_argument(
@@ -129,6 +130,13 @@ def _register_search(
         dest="exclude_text",
         help="Terms that must not appear in text",
     )
+    search_parser.add_argument(
+        "--use-autoprompt", action="store_true", dest="use_autoprompt"
+    )
+    search_parser.add_argument("--category", dest="category")
+    search_parser.add_argument("--user-location", dest="user_location")
+    search_parser.add_argument("--moderation", action="store_true", dest="moderation")
+    search_parser.add_argument("--flags", nargs="*", dest="flags")
     _add_contents_option_flags(search_parser)
 
 
@@ -182,6 +190,14 @@ def _register_find_similar(
     # Domain filters
     similar_parser.add_argument("--include-domains", nargs="*", dest="include_domains")
     similar_parser.add_argument("--exclude-domains", nargs="*", dest="exclude_domains")
+    similar_parser.add_argument("--include-text", nargs="*", dest="include_text")
+    similar_parser.add_argument("--exclude-text", nargs="*", dest="exclude_text")
+    similar_parser.add_argument("--start-published-date", dest="start_published_date")
+    similar_parser.add_argument("--end-published-date", dest="end_published_date")
+    similar_parser.add_argument("--start-crawl-date", dest="start_crawl_date")
+    similar_parser.add_argument("--end-crawl-date", dest="end_crawl_date")
+    similar_parser.add_argument("--category", dest="category")
+    similar_parser.add_argument("--flags", nargs="*", dest="flags")
     _add_contents_option_flags(similar_parser)
 
 
@@ -211,6 +227,16 @@ def _register_answer(
         dest="stream",
         help="Stream the answer as it is generated",
     )
+    answer_parser.add_argument(
+        "--json-lines",
+        action="store_true",
+        dest="json_lines",
+        help="When streaming, emit JSON-lines with chunk events",
+    )
+    answer_parser.add_argument("--model", choices=["exa", "exa-pro"], dest="model")
+    answer_parser.add_argument("--system-prompt", dest="system_prompt")
+    answer_parser.add_argument("--output-schema", dest="output_schema")
+    answer_parser.add_argument("--user-location", dest="user_location")
 
 
 def _register_research(
@@ -237,9 +263,7 @@ def _register_research(
     start.add_argument(
         "--schema", help="Path to JSON Schema file for structured output"
     )
-    start.add_argument(
-        "--infer-schema", action="store_true", help="Infer schema when not provided"
-    )
+    # Removed --infer-schema: not supported by SDK; simplifies UX
 
     # Get research task
     getp = rsubs.add_parser("get", help="Get a research task")
@@ -252,29 +276,17 @@ def _register_research(
     listp.add_argument("--cursor", help="Pagination cursor")
 
     # Poll research task
-    poll = rsubs.add_parser("poll", help="Poll until completion")
+    poll = rsubs.add_parser("poll", help="Poll until completion (SDK defaults)")
     poll.add_argument("--id", required=True, dest="research_id", help="Research ID")
     poll.add_argument(
-        "--model",
-        choices=["exa-research-fast", "exa-research", "exa-research-pro"],
-        help="Choose preset poll interval",
-    )
-    poll.add_argument(
-        "--interval", type=int, help="Seconds between polls (overrides preset)"
-    )
-    poll.add_argument(
-        "--timeout", type=int, default=600, help="Maximum seconds to wait"
+        "--preset",
+        choices=["fast", "balanced", "pro"],
+        help="Convenience flag for UX; polling uses SDK defaults",
     )
 
     # Stream research task
-    stream = rsubs.add_parser("stream", help="Stream SSE events for a task")
+    stream = rsubs.add_parser("stream", help="Stream research events as JSON-lines")
     stream.add_argument("--id", required=True, dest="research_id", help="Research ID")
-    stream.add_argument(
-        "--json-events",
-        action="store_true",
-        dest="json_events",
-        help="Parse SSE and emit one JSON object per event",
-    )
 
 
 def _register_context(
@@ -321,12 +333,22 @@ def main(argv: list[str] | None = None) -> int:
     # Execute command and handle results
     try:
         result = _dispatch(service, args)
-    except requests.HTTPError as error:
-        sys.stderr.write(
-            f"HTTP error: {error.response.status_code} {error.response.text}\n"
-        )
+    except (requests.HTTPError, httpx.HTTPStatusError) as error:
+        response = getattr(error, "response", None)
+        if response is not None:
+            code = getattr(response, "status_code", "?")
+            text = getattr(response, "text", "")
+            sys.stderr.write(f"HTTP error: {code} {text}\n")
+        else:
+            sys.stderr.write("HTTP error\n")
         return 1
-    except (ValueError, RuntimeError, OSError, requests.RequestException) as exc:
+    except (
+        ValueError,
+        RuntimeError,
+        OSError,
+        requests.RequestException,
+        httpx.RequestError,
+    ) as exc:
         sys.stderr.write(f"Error: {exc}\n")
         return 1
 
@@ -391,7 +413,9 @@ def _handle_search(
     })
     contents = _build_contents_options(args)
     if contents:
-        return service.search_and_contents(query=args.query, content_params=contents)
+        return service.search_and_contents(
+            query=args.query, search_params=base, content_params=contents
+        )
     return service.search(query=args.query, params=base)
 
 
@@ -411,10 +435,20 @@ def _handle_find_similar(
         "exclude_source_domain": args.exclude_source_domain,
         "include_domains": args.include_domains,
         "exclude_domains": args.exclude_domains,
+        "include_text": getattr(args, "include_text", None),
+        "exclude_text": getattr(args, "exclude_text", None),
+        "start_published_date": getattr(args, "start_published_date", None),
+        "end_published_date": getattr(args, "end_published_date", None),
+        "start_crawl_date": getattr(args, "start_crawl_date", None),
+        "end_crawl_date": getattr(args, "end_crawl_date", None),
+        "category": getattr(args, "category", None),
+        "flags": getattr(args, "flags", None),
     })
     contents = _build_contents_options(args)
     if contents:
-        return service.find_similar_and_contents(url=args.url, content_params=contents)
+        return service.find_similar_and_contents(
+            url=args.url, find_params=base, content_params=contents
+        )
     return service.find_similar(url=args.url, params=base)
 
 
@@ -423,13 +457,40 @@ def _handle_answer(
 ) -> dict[str, Any] | None:
     """Execute the answer command."""
     if getattr(args, "stream", False):
-        for chunk in service.answer_stream(
-            query=args.query, include_text=args.include_text
-        ):
-            sys.stdout.write(str(chunk))
-        sys.stdout.write("\n")
-        return None
-    return service.answer(query=args.query, include_text=args.include_text)
+        if getattr(args, "json_lines", False):
+            schema = _read_json_file(args.output_schema) if args.output_schema else None
+            for event in service.answer_stream_json(
+                query=args.query,
+                include_text=args.include_text,
+                model=args.model,
+                system_prompt=args.system_prompt,
+                output_schema=schema,
+                user_location=args.user_location,
+            ):
+                print(json.dumps(event, ensure_ascii=False))
+            return None
+        else:
+            schema = _read_json_file(args.output_schema) if args.output_schema else None
+            for chunk in service.answer_stream(
+                query=args.query,
+                include_text=args.include_text,
+                model=args.model,
+                system_prompt=args.system_prompt,
+                output_schema=schema,
+                user_location=args.user_location,
+            ):
+                sys.stdout.write(str(chunk))
+            sys.stdout.write("\n")
+            return None
+    schema = _read_json_file(args.output_schema) if args.output_schema else None
+    return service.answer(
+        query=args.query,
+        include_text=args.include_text,
+        model=args.model,
+        system_prompt=args.system_prompt,
+        output_schema=schema,
+        user_location=args.user_location,
+    )
 
 
 def _handle_research(
@@ -463,7 +524,6 @@ def _research_start(
         instructions=instructions,
         model=args.model,
         output_schema=schema,
-        infer_schema=args.infer_schema,
     )
 
 
@@ -485,30 +545,14 @@ def _research_poll(
     service: client.ExaService, args: argparse.Namespace
 ) -> dict[str, Any]:
     """Handle `research poll`."""
-    interval = args.interval
-    if interval is None and args.model:
-        interval = {
-            "exa-research-fast": 10,
-            "exa-research": 30,
-            "exa-research-pro": 40,
-        }.get(args.model)
-    if interval is None:
-        interval = 30
-    return service.research_poll(
-        research_id=args.research_id,
-        poll_interval=interval,
-        max_wait_time=args.timeout,
-    )
+    # Polling uses SDK defaults; --preset is informational only.
+    return service.research_poll(research_id=args.research_id)
 
 
 def _research_stream(service: client.ExaService, args: argparse.Namespace) -> None:
-    """Handle `research stream`."""
-    if getattr(args, "json_events", False):
-        for event in service.research_stream_events(research_id=args.research_id):
-            print(json.dumps(event, ensure_ascii=False))
-    else:
-        for line in service.research_stream(research_id=args.research_id):
-            print(line)
+    """Handle `research stream` (always JSON-lines)."""
+    for event in service.research_stream(research_id=args.research_id):
+        print(json.dumps(event, ensure_ascii=False))
 
 
 def _handle_context(
@@ -564,6 +608,9 @@ def _add_contents_option_flags(p: argparse.ArgumentParser) -> None:
     # Summary
     p.add_argument("--summary-query", dest="summary_query")
     p.add_argument("--summary-schema", dest="summary_schema")
+    # Metadata
+    p.add_argument("--metadata", action="store_true", dest="metadata")
+    p.add_argument("--metadata-json", dest="metadata_json")
     # Subpages
     p.add_argument("--subpages", type=int, dest="subpages")
     p.add_argument("--subpage-target", dest="subpage_target")
@@ -576,10 +623,15 @@ def _add_contents_option_flags(p: argparse.ArgumentParser) -> None:
     # Livecrawl
     p.add_argument(
         "--livecrawl",
-        choices=["always", "preferred", "fallback", "never"],
+        choices=["always", "preferred", "fallback", "never", "auto"],
         help="Livecrawl freshness preference",
     )
     p.add_argument("--livecrawl-timeout", type=int, dest="livecrawl_timeout")
+    # Filters and flags
+    p.add_argument(
+        "--filter-empty-results", action="store_true", dest="filter_empty_results"
+    )
+    p.add_argument("--contents-flags", nargs="*", dest="contents_flags")
 
 
 def _build_contents_options(args: argparse.Namespace) -> dict[str, Any]:
@@ -620,6 +672,12 @@ def _build_contents_options(args: argparse.Namespace) -> dict[str, Any]:
         if args.summary_schema:
             s["schema"] = _read_json_file(args.summary_schema)
         opts["summary"] = s
+    # metadata
+    if getattr(args, "metadata", False) or getattr(args, "metadata_json", None):
+        if args.metadata_json:
+            opts["metadata"] = _read_json_file(args.metadata_json)
+        else:
+            opts["metadata"] = True
     # subpages
     if getattr(args, "subpages", None) is not None:
         opts["subpages"] = args.subpages
@@ -654,6 +712,12 @@ def _build_contents_options(args: argparse.Namespace) -> dict[str, Any]:
         opts["livecrawl"] = args.livecrawl
     if getattr(args, "livecrawl_timeout", None) is not None:
         opts["livecrawl_timeout"] = args.livecrawl_timeout
+    # filter_empty_results
+    if getattr(args, "filter_empty_results", False):
+        opts["filter_empty_results"] = True
+    # flags
+    if getattr(args, "contents_flags", None):
+        opts["flags"] = args.contents_flags
     return opts
 
 

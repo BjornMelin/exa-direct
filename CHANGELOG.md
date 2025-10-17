@@ -22,6 +22,8 @@
   - `examples/stream_consumer.sh` (pretty-prints `--json-events`)
   - `examples/research_instructions.md`, `examples/research_schema.json`
   - `.env.example` with `EXA_API_KEY`
+- Docs (developer-facing): `docs/developers/exa_py_api_reference.md` capturing canonical SDK surfaces.
+- ADRs: `ADR-0011 httpx over requests`, `ADR-0012 final SDK surface`, `ADR-0013 typed JSON-lines streaming`.
 
 ### Changed
 
@@ -30,12 +32,21 @@
 - Client answer streaming now uses SDK `stream_answer(...)`.
 - CLI routing extended with contents option builder and answer streaming branch.
 - Docstrings normalized to concise Google-style; minor line wraps for readability.
+- Research param alignment with latest exa_py:
+  - `research_get` now calls `research.get(research_id, ...)` (no `task_id`).
+  - `research_poll` relies on SDK defaults via `poll_until_finished(research_id)`.
+  - Removed unsupported `--infer-schema` flag and corresponding service arg.
+  - Kept `--preset` as a convenience hint; polling behavior remains SDK-default.
+  - Switched research streaming to SDK typed events; CLI emits JSON-lines only.
+  - Added `answer --stream --json-lines` for agent-friendly chunk events.
+  - HTTP client: switch to `httpx.Client` for `/context` endpoint; unified error handling.
 
 ### Fixed
 
 - Research endpoint correctness and headers retained for SSE; connection retries on
   initial SSE connect for transient statuses (429/502/503/504).
 - Tests cover SDK-first research get, SSE parsing, CLI `--json-events`, and `answer --stream`.
+- Tests updated for SDK-aligned research calls and simplified polling defaults.
 
 ### Removed
 

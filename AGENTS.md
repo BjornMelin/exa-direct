@@ -63,8 +63,8 @@
   - `exa research get --id <researchId> --events --pretty`
 - Research (Poll with preset):
   - `exa research poll --id <researchId> --model exa-research --timeout 900 --pretty`
-- Research (Stream SSE):
-  - `exa research stream --id <researchId>`
+- Research (Stream JSON-lines):
+  - `exa research stream --id <researchId>` → emits one JSON object per line (typed SDK events).
 - Research (List):
   - `exa research list --limit 10 --pretty`
 - Context (Exa Code):
@@ -169,11 +169,11 @@ Use this snippet in your own AGENTS.md to enable GPT‑5‑Codex/GPT‑5 agents 
 - Find similar → `exa find-similar --url <url> [--exclude-source-domain]`
 - Answer with citations → `exa answer --query "…" [--include-text]`
 - Long-form research (schema recommended):
-  - Create → `exa research start --instructions "…" [--model exa-research|exa-research-pro] [--schema @schema.json] [--infer-schema]`
+  - Create → `exa research start --instructions "…" [--model exa-research|exa-research-pro] [--schema @schema.json]`
   - Get → `exa research get --id <id> [--events]`
   - List → `exa research list [--limit N] [--cursor CUR]`
   - Poll → `exa research poll --id <id> [--model exa-research[-fast|-pro]] [--interval SECS] [--timeout 900]`
-  - Stream → `exa research stream --id <id> [--json-events]`
+- Stream → `exa research stream --id <id>` (always JSON-lines)
 - Code context → `exa context query --query "…" --tokensNum dynamic`
 
 ### Defaults

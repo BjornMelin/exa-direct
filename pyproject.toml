@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 authors = [{name = "exa-direct", email = "devnull@example.com"}]
 dependencies = [
   "exa_py>=1.16.1,<2.0",
-  "requests>=2.32,<3.0",
+  "httpx>=0.27,<1.0",
 ]
 
 [project.urls]
@@ -147,7 +147,15 @@ max-line-length = 88
 ignored-modules = ["requests", "exa_py", "pytest"]
 
 [tool.pylint.messages_control]
-disable = []
+disable = [
+  "too-many-branches",
+  "too-many-statements",
+  "too-many-arguments",
+  "unused-argument",
+  "too-few-public-methods",
+  "import-outside-toplevel",
+  "no-else-return",
+]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

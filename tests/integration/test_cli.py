@@ -36,43 +36,79 @@ class DummyService:
         return {"results": ["example"]}
 
     def search_and_contents(
-        self, *, query: str, content_params: dict[str, Any]
+        self,
+        *,
+        query: str,
+        search_params: dict[str, Any] | None,
+        content_params: dict[str, Any],
     ) -> dict[str, Any]:
         """Record search_and_contents call and return mock response."""
         self.calls.append({
             "method": "search_and_contents",
             "query": query,
+            "search_params": search_params,
             "content_params": content_params,
         })
         return {"results": []}
 
     def find_similar_and_contents(
-        self, *, url: str, content_params: dict[str, Any]
+        self,
+        *,
+        url: str,
+        find_params: dict[str, Any] | None,
+        content_params: dict[str, Any],
     ) -> dict[str, Any]:
         """Record find_similar_and_contents call and return mock response."""
         self.calls.append({
             "method": "find_similar_and_contents",
             "url": url,
+            "find_params": find_params,
             "content_params": content_params,
         })
         return {"results": ["example"]}
 
-    def answer_stream(self, *, query: str, include_text: bool) -> Any:
+    def answer_stream(
+        self,
+        *,
+        query: str,
+        include_text: bool,
+        model: str | None = None,
+        system_prompt: str | None = None,
+        output_schema: dict[str, Any] | None = None,
+        user_location: str | None = None,
+    ) -> Any:
         """Yield streamed answer chunks."""
         self.calls.append({
             "method": "answer_stream",
             "query": query,
             "include_text": include_text,
+            "model": model,
+            "system_prompt": system_prompt,
+            "output_schema": output_schema,
+            "user_location": user_location,
         })
         yield "Paris"
         yield " is the capital of France."
 
-    def answer(self, *, query: str, include_text: bool) -> dict[str, Any]:
+    def answer(
+        self,
+        *,
+        query: str,
+        include_text: bool,
+        model: str | None = None,
+        system_prompt: str | None = None,
+        output_schema: dict[str, Any] | None = None,
+        user_location: str | None = None,
+    ) -> dict[str, Any]:
         """Record answer call and return mock response."""
         self.calls.append({
             "method": "answer",
             "query": query,
             "include_text": include_text,
+            "model": model,
+            "system_prompt": system_prompt,
+            "output_schema": output_schema,
+            "user_location": user_location,
         })
         return {"answer": "Paris", "citations": []}
 
@@ -149,8 +185,11 @@ def test_search_with_text_uses_search_and_contents(
     exit_code = cli.main(["search", "--query", "DeepMind", "--text"])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"results": []}
-    assert dummy_service.calls[0]["method"] == "search_and_contents"
-    assert dummy_service.calls[0]["content_params"]["text"] is True
+    call = dummy_service.calls[0]
+    assert call["method"] == "search_and_contents"
+    assert call["content_params"]["text"] is True
+    # base search params should be present (even if empty)
+    assert isinstance(call.get("search_params"), (dict, type(None)))
 
 
 def test_find_similar_with_text_uses_find_similar_and_contents(
@@ -165,8 +204,10 @@ def test_find_similar_with_text_uses_find_similar_and_contents(
     ])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"results": ["example"]}
-    assert dummy_service.calls[0]["method"] == "find_similar_and_contents"
-    assert dummy_service.calls[0]["content_params"]["text"] is True
+    call = dummy_service.calls[0]
+    assert call["method"] == "find_similar_and_contents"
+    assert call["content_params"]["text"] is True
+    assert isinstance(call.get("find_params"), (dict, type(None)))
 
 
 def test_answer_stream(
@@ -182,6 +223,36 @@ def test_answer_stream(
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "Paris" in out and "capital of France" in out
+
+
+def test_answer_stream_json_lines(
+    dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Answer with --stream --json-lines emits JSON events per chunk."""
+
+    # Monkeypatch the service to provide a JSON-lines stream
+    def _answer_stream_json(
+        *,
+        query: str,
+        include_text: bool,
+        **kwargs: Any,
+    ):  # type: ignore[override]
+        del query, include_text, kwargs
+        yield {"event": "chunk", "data": "Par"}
+        yield {"event": "chunk", "data": "is"}
+        yield {"event": "done"}
+
+    dummy_service.answer_stream_json = _answer_stream_json  # type: ignore[attr-defined]
+    exit_code = cli.main([
+        "answer",
+        "--query",
+        "Where?",
+        "--stream",
+        "--json-lines",
+    ])
+    assert exit_code == 0
+    lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+    assert lines[-1]["event"] == "done"
 
 
 def test_find_similar_invokes_service(
@@ -219,10 +290,7 @@ def test_answer_invokes_service(
     ])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"answer": "Paris", "citations": []}
-    assert dummy_service.calls == [
-        {
-            "method": "answer",
-            "query": "What is the capital of France?",
-            "include_text": True,
-        }
-    ]
+    call = dummy_service.calls[0]
+    assert call["method"] == "answer"
+    assert call["query"] == "What is the capital of France?"
+    assert call["include_text"] is True

@@ -13,7 +13,7 @@ import time
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping
 from typing import Any, cast
 
-import requests
+import httpx
 from exa_py import Exa
 
 # API endpoints
@@ -34,18 +34,21 @@ class ExaService:
         _session: HTTP session for API calls.
     """
 
-    def __init__(
-        self, api_key: str, *, session: requests.Session | None = None
-    ) -> None:
-        """Initialize Exa service client.
+    def __init__(self, api_key: str, *, http: httpx.Client | None = None) -> None:
+        """Initialize service with an Exa SDK client and an HTTP client.
 
         Args:
-            api_key: Exa API key for authentication.
-            session: Optional requests session for connection reuse.
+            api_key: Exa API key used for authentication.
+            http: Optional `httpx.Client` to reuse; if not provided, a client
+                with HTTP/2 enabled and a total timeout is created.
         """
         self._api_key = api_key
         self._exa = Exa(api_key)
-        self._session = session or requests.Session()
+        # persistent HTTP client for non-SDK endpoints (Context). Enable HTTP/2
+        # with a total timeout.
+        self._http = http or httpx.Client(
+            http2=True, timeout=60.0, headers={"x-api-key": api_key}
+        )
 
     def search(self, *, query: str, params: Mapping[str, Any]) -> dict[str, Any]:
         """Execute the search endpoint.
@@ -61,10 +64,18 @@ class ExaService:
         return _to_dict(response)
 
     def search_and_contents(
-        self, *, query: str, content_params: Mapping[str, Any]
+        self,
+        *,
+        query: str,
+        search_params: Mapping[str, Any] | None,
+        content_params: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """Search and retrieve contents in one call via SDK."""
-        response = self._exa.search_and_contents(query, **content_params)
+        """Search and retrieve contents in one call via SDK, including filters."""
+        payload: dict[str, Any] = {}
+        if search_params:
+            payload.update(search_params)
+        payload.update(content_params)
+        response = self._exa.search_and_contents(query, **payload)
         return _to_dict(response)
 
     def contents(
@@ -119,28 +130,72 @@ class ExaService:
         return _to_dict(response)
 
     def find_similar_and_contents(
-        self, *, url: str, content_params: Mapping[str, Any]
+        self,
+        *,
+        url: str,
+        find_params: Mapping[str, Any] | None,
+        content_params: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """Find similar and retrieve contents in one call via SDK."""
-        response = self._exa.find_similar_and_contents(url=url, **content_params)
+        """Find similar and retrieve contents in one call via SDK, including filters."""
+        payload: dict[str, Any] = {}
+        if find_params:
+            payload.update(find_params)
+        payload.update(content_params)
+        response = self._exa.find_similar_and_contents(url=url, **payload)
         return _to_dict(response)
 
-    def answer(self, *, query: str, include_text: bool) -> dict[str, Any]:
+    def answer(
+        self,
+        *,
+        query: str,
+        include_text: bool,
+        model: Any | None = None,
+        system_prompt: str | None = None,
+        output_schema: dict[str, Any] | None = None,
+        user_location: str | None = None,
+    ) -> dict[str, Any]:
         """Generate an answer with citations.
 
         Args:
             query: Question to answer.
             include_text: Whether to include source text in response.
+            model: Answer model (e.g., "exa" or "exa-pro").
+            system_prompt: Optional system prompt for the answer model.
+            output_schema: Optional JSON Schema dict for structured answers.
+            user_location: Optional ISO country code for location-aware behavior.
 
         Returns:
             Dictionary containing answer and citations.
         """
-        response = self._exa.answer(query=query, text=include_text)
+        response = self._exa.answer(
+            query=query,
+            text=include_text,
+            model=model,
+            system_prompt=system_prompt,
+            output_schema=output_schema,
+            user_location=user_location,
+        )
         return _to_dict(response)
 
-    def answer_stream(self, *, query: str, include_text: bool) -> Iterator[str]:
+    def answer_stream(
+        self,
+        *,
+        query: str,
+        include_text: bool,
+        model: Any | None = None,
+        system_prompt: str | None = None,
+        output_schema: dict[str, Any] | None = None,
+        user_location: str | None = None,
+    ) -> Iterator[str]:
         """Stream an answer via the SDK, yielding text chunks."""
-        stream = self._exa.stream_answer(query, text=include_text)
+        stream = self._exa.stream_answer(
+            query,
+            text=include_text,
+            model=model,
+            system_prompt=system_prompt,
+            output_schema=output_schema,
+            user_location=user_location,
+        )
         for chunk in stream:
             yield str(chunk)
 
@@ -152,7 +207,6 @@ class ExaService:
         instructions: str,
         model: str | None = None,
         output_schema: Mapping[str, Any] | None = None,
-        infer_schema: bool = False,
     ) -> dict[str, Any]:
         """Create a research task.
 
@@ -161,7 +215,6 @@ class ExaService:
             model: Research model (e.g., 'exa-research-fast', 'exa-research',
                 'exa-research-pro').
             output_schema: Optional JSON Schema dict for structured output.
-            infer_schema: Whether to infer a schema when none is provided.
 
         Returns:
             Dictionary containing task details and ID.
@@ -170,16 +223,16 @@ class ExaService:
         params: dict[str, Any] = {
             "instructions": instructions,
             "output_schema": output_schema,
-            "infer_schema": infer_schema,
             "model": model,
         }
         clean = {k: v for k, v in params.items() if v is not None}
-        task = self._exa.research.create(**clean)  # type: ignore[attr-defined]
+        task = self._exa.research.create(**clean)
         return _to_dict(task)
 
     def research_get(self, *, research_id: str, events: bool = False) -> dict[str, Any]:
         """Return research task details using the SDK."""
-        result = self._exa.research.get(task_id=research_id, events=events)  # type: ignore[attr-defined]
+        # Align with exa_py ResearchClient.get(research_id, *, events=False, ...)
+        result = self._exa.research.get(research_id, events=events)
         return _to_dict(result)
 
     def research_list(
@@ -194,128 +247,101 @@ class ExaService:
         Returns:
             Dictionary containing list of research tasks.
         """
-        result = self._exa.research.list(limit=limit, cursor=cursor)  # type: ignore[attr-defined]
+        result = self._exa.research.list(limit=limit, cursor=cursor)
         return _to_dict(result)
 
-    def research_poll(
-        self,
-        *,
-        research_id: str,
-        poll_interval: int = 10,
-        max_wait_time: int = 600,
-    ) -> dict[str, Any]:
-        """Poll a research task until completion using SDK helper.
-
-        Args:
-            research_id: Unique identifier for the research task.
-            poll_interval: Seconds to wait between status checks.
-            max_wait_time: Maximum seconds to wait for completion.
-
-        Returns:
-            Dictionary containing final task results.
-        """
-        details = self._exa.research.poll_task(  # type: ignore[attr-defined]
-            task_id=research_id,
-            poll_interval=poll_interval,
-            max_wait_time=max_wait_time,
-        )
+    def research_poll(self, *, research_id: str) -> dict[str, Any]:
+        """Poll to completion using SDK defaults (no local timing knobs)."""
+        # exa_py ResearchClient.poll_until_finished defaults:
+        #   poll_interval=1000ms, timeout_ms=600000ms, events=False.
+        # Rely on SDK defaults; pass positional research_id.
+        details = self._exa.research.poll_until_finished(research_id)
         return _to_dict(details)
 
-    def research_stream(self, *, research_id: str) -> Iterator[str]:
-        """Yield raw SSE lines for a research task stream endpoint."""
-        url = f"{_RESEARCH_BASE}/{research_id}"
+    def research_stream(self, *, research_id: str) -> Iterator[dict[str, Any]]:
+        """Yield typed research events as JSON-serializable dicts.
 
-        # Configure retry delays for connection issues
-        backoffs = (0.5, 1.0, 2.0)
-
-        # Attempt connection with exponential backoff
-        for delay in (*backoffs, None):
-            with self._session.get(
-                url,
-                headers={
-                    "Accept": "text/event-stream",
-                    "x-api-key": self._api_key,
-                },
-                params={"stream": "true"},
-                stream=True,
-                timeout=300,
-            ) as resp:
-                # Retry on transient connection errors
-                if resp.status_code in (429, 502, 503, 504) and delay is not None:
-                    _sleep(delay)
-                    continue
-
-                resp.raise_for_status()
-
-                # Stream and yield event lines
-                for raw in resp.iter_lines(decode_unicode=True):
-                    if raw and (line := raw.strip()):
-                        yield line
-                break
-
-    def research_stream_events(self, *, research_id: str) -> Iterator[dict[str, Any]]:
-        """Yield structured SSE events as dictionaries.
-
-        Parses raw server-sent events into structured format with event names
-        and parsed JSON data payloads when possible.
-
-        Args:
-            research_id: Unique identifier for the research task.
-
-        Yields:
-            Dictionary containing 'event' name and 'data' payload.
+        Uses the SDK's typed streaming (research.get(stream=True)) and converts
+        each Pydantic event into a plain dict, suitable for JSON-lines output.
         """
-        # Track current event being built
-        current: dict[str, Any] = {}
-
-        # Parse each raw SSE line
-        for line in self.research_stream(research_id=research_id):
-            if line.startswith("event:"):
-                # Extract event name and yield previous event if complete
-                name = line[len("event:") :].strip()
-                if current:
-                    yield current
-                current = {"event": name}
-
-            elif line.startswith("data:"):
-                # Extract and parse data payload
-                payload = line[len("data:") :].strip()
+        events = self._exa.research.get(research_id, stream=True)
+        for event in events:
+            if hasattr(event, "model_dump"):
+                yield event.model_dump()
+            else:
+                # Best-effort fallback if the SDK returns non-Pydantic objects
                 try:
-                    current["data"] = json.loads(payload)
-                except json.JSONDecodeError:
-                    # Fallback to raw string if JSON parsing fails
-                    current["data"] = payload
+                    yield json.loads(json.dumps(event, default=lambda o: o.__dict__))
+                except Exception as exc:  # pragma: no cover - defensive fallback
+                    msg = f"Unserializable research event: {event!r}"
+                    raise TypeError(msg) from exc
 
-        # Yield final event if present
-        if current:
-            yield current
+    def answer_stream_json(
+        self,
+        *,
+        query: str,
+        include_text: bool,
+        model: Any | None = None,
+        system_prompt: str | None = None,
+        output_schema: dict[str, Any] | None = None,
+        user_location: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream answer chunks as JSON-line dicts.
+
+        Each yielded item has the form {"event": "chunk", "data": <text>} and a
+        final {"event": "done"} sentinel for consumers that need a terminator.
+        """
+        for chunk in self._exa.stream_answer(
+            query,
+            text=include_text,
+            model=model,
+            system_prompt=system_prompt,
+            output_schema=output_schema,
+            user_location=user_location,
+        ):
+            yield {"event": "chunk", "data": str(chunk)}
+        yield {"event": "done"}
 
     # --- Context (Exa Code) ---
 
     def context(
         self, *, query: str, tokens_num: str | int | None = None
     ) -> dict[str, Any]:
-        """Call the Context API to retrieve code-focused context.
+        """Call the Context API to retrieve code-focused results.
 
         Args:
-            query: Code-related query for context retrieval.
-            tokens_num: Maximum number of tokens to return.
+            query: Code-related query text.
+            tokens_num: Maximum tokens to return ("dynamic" or integer).
 
         Returns:
-            Dictionary containing code context and examples.
+            JSON object returned by the service.
         """
         # Build request payload
         payload: dict[str, Any] = {"query": query}
         if tokens_num is not None:
             payload["tokensNum"] = tokens_num
 
-        # Make API request
-        resp = self._session.post(
-            f"{_API_BASE}/context",
-            headers={"x-api-key": self._api_key, "Content-Type": "application/json"},
-            json=payload,
-            timeout=60,
-        )
+        # Lightweight retries with short exponential backoff on transient failures
+        backoffs = [0.1, 0.2, 0.5]
+        url = f"{_API_BASE}/context"
+
+        for delay in backoffs:
+            try:
+                resp = self._http.post(url, json=payload)
+                resp.raise_for_status()
+                return resp.json()  # Success: return parsed JSON response.
+            except httpx.HTTPStatusError as exc:
+                # Retry only on server errors (HTTP 5xx). Raise otherwise.
+                status = getattr(getattr(exc, "response", None), "status_code", 0)
+                if int(status) >= 500:
+                    time.sleep(delay)
+                else:
+                    raise
+            except httpx.RequestError:
+                time.sleep(delay)  # Network-level error: sleep and retry
+
+        # Final attempt
+        resp = self._http.post(url, json=payload)
         resp.raise_for_status()
         return resp.json()
 

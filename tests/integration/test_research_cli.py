@@ -26,7 +26,6 @@ class DummyResearchService:
         instructions: str,
         model: str | None,
         output_schema: dict[str, Any] | None,
-        infer_schema: bool,
     ) -> dict[str, Any]:
         """Record a research_start invocation."""
         self.calls.append({
@@ -34,7 +33,6 @@ class DummyResearchService:
             "instructions": instructions,
             "model": model,
             "schema": output_schema,
-            "infer": infer_schema,
         })
         return {"id": "task-1"}
 
@@ -55,30 +53,17 @@ class DummyResearchService:
         self.calls.append({"method": "research_list", "limit": limit, "cursor": cursor})
         return {"data": [], "hasMore": False}
 
-    def research_poll(
-        self, *, research_id: str, poll_interval: int, max_wait_time: int
-    ) -> dict[str, Any]:
+    def research_poll(self, *, research_id: str) -> dict[str, Any]:
         """Record a research_poll invocation."""
-        self.calls.append({
-            "method": "research_poll",
-            "id": research_id,
-            "interval": poll_interval,
-            "timeout": max_wait_time,
-        })
+        self.calls.append({"method": "research_poll", "id": research_id})
         return {"id": research_id, "status": "completed", "data": {"ok": True}}
 
-    def research_stream(self, *, research_id: str) -> Iterator[str]:
-        """Record a research_stream invocation and yield fake SSE events."""
+    def research_stream(self, *, research_id: str) -> Iterator[dict[str, Any]]:
+        """Record a research_stream invocation and yield JSON events."""
         self.calls.append({"method": "research_stream", "id": research_id})
-        yield "event: running"
-        yield 'data: {"progress": 50}'
-        yield "event: completed"
-
-    def research_stream_events(self, *, research_id: str) -> Iterator[dict[str, Any]]:
-        """Record a research_stream_events invocation and yield structured events."""
-        self.calls.append({"method": "research_stream_events", "id": research_id})
-        yield {"event": "running", "data": {"progress": 50}}
-        yield {"event": "completed", "data": {"ok": True}}
+        yield {"eventType": "running"}
+        yield {"eventType": "task-operation", "data": {"progress": 50}}
+        yield {"eventType": "research-output", "output": {"outputType": "completed"}}
 
     def context(self, *, query: str, tokens_num: str | int | None) -> dict[str, Any]:
         """Record a context query invocation."""
@@ -106,7 +91,6 @@ def test_research_start(
         "Find latest GPU roadmaps",
         "--model",
         "exa-research-fast",
-        "--infer-schema",
     ])
     assert exit_code == 0
     out = json.loads(capsys.readouterr().out)
@@ -118,41 +102,34 @@ def test_research_get_list_poll(dummy_service: DummyResearchService) -> None:
     """CLI subcommands get, list, poll should fan out to service methods."""
     assert cli.main(["research", "get", "--id", "abc"]) == 0
     assert cli.main(["research", "list", "--limit", "5"]) == 0
-    assert cli.main(["research", "poll", "--id", "abc", "--model", "exa-research"]) == 0
+    # Poll uses SDK defaults; --preset optional for UX
+    assert cli.main(["research", "poll", "--id", "abc"]) == 0
     # ensure calls captured
     methods = [call["method"] for call in dummy_service.calls]
     assert methods[:3] == ["research_get", "research_list", "research_poll"]
 
 
-def test_research_stream(
+def test_research_stream_json_lines(
     dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Streaming command should yield sequential SSE events."""
+    """Streaming emits JSON lines by default."""
     exit_code = cli.main(["research", "stream", "--id", "abc"])
     assert exit_code == 0
-    output = capsys.readouterr().out.strip().splitlines()
-    assert output[0].startswith("event: running")
-    assert output[-1].startswith("event: completed")
+    lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+    assert lines[0]["eventType"] == "running"
+    assert lines[-1]["eventType"] == "research-output"
     assert dummy_service.calls[-1]["method"] == "research_stream"
 
 
-def test_research_stream_json_events(
+def test_research_stream_is_json_only(
     dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Streaming with --json-events should print JSON event objects."""
-
-    # Teach dummy service to return structured events when requested
-    def _events(*, research_id: str) -> Iterator[dict[str, Any]]:
-        del research_id
-        yield {"event": "running", "data": {"progress": 25}}
-        yield {"event": "completed", "data": {"ok": True}}
-
-    dummy_service.research_stream_events = _events
-
-    exit_code = cli.main(["research", "stream", "--id", "abc", "--json-events"])
+    """No flag required: output is JSON-lines; ensure valid JSON objects."""
+    exit_code = cli.main(["research", "stream", "--id", "xyz"])
     assert exit_code == 0
-    lines = [line for line in capsys.readouterr().out.strip().splitlines() if line]
-    assert lines[0].startswith("{") and lines[-1].endswith("}")
+    out = capsys.readouterr().out.strip()
+    lines = [ln for ln in out.splitlines() if ln]
+    assert all(ln.startswith("{") and ln.endswith("}") for ln in lines)
 
 
 def test_research_get_with_events(

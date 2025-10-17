@@ -49,10 +49,10 @@ exa research start --instructions @examples/research_instructions.md \
 exa research poll --id <researchId> --model exa-research
 ```
 
-- Research (stream SSE):
+-- Research (stream JSON-lines):
 
 ```bash
-exa research stream --id <researchId>
+exa research stream --id <researchId> | jq .
 ```
 
 - Context (Exa Code):
@@ -60,6 +60,7 @@ exa research stream --id <researchId>
 ```bash
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
+
 
 ## References
 

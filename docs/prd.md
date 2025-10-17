@@ -1,12 +1,12 @@
 # Product Requirements Document (PRD) – exa-direct
 
 ## 1. Summary
-Build a standalone CLI to access Exa APIs directly (no MCP). Provide end-to-end tasks: Search, Contents, Find Similar, Answer, Research (Create/Get/List + Poll + SSE), and Context (Exa Code). Keep usage simple, fast, and scriptable.
+Build a standalone CLI to access Exa APIs directly (no MCP). Provide end-to-end tasks: Search, Contents, Find Similar, Answer, Research (Create/Get/List + Poll + Stream), and Context (Exa Code). Keep usage simple, fast, and scriptable.
 
 ## 2. Goals
 - Single binary entry (`exa`) for all supported endpoints.
 - JSON output by default; pretty-print and save options.
-- Research: support `exa-research-fast`, `exa-research`, `exa-research-pro`, polling presets, SSE streaming.
+- Research: support `exa-research-fast`, `exa-research`, `exa-research-pro`, polling defaults, typed streaming with JSON-lines.
 - Context (Exa Code): enable code-focused context retrieval.
 
 ## 3. Non-Goals
@@ -19,7 +19,7 @@ Build a standalone CLI to access Exa APIs directly (no MCP). Provide end-to-end 
 ## 5. Use Cases
 - Fast search + contents to feed downstream processing.
 - Single-shot Q&A with citations.
-- Long-running research tasks with structured results (JSON Schema), observed via polling or SSE.
+- Long-running research tasks with structured results (JSON Schema), observed via polling or streaming.
 - Code-context retrieval for agents or developer prompts.
 
 ## 6. Functional Requirements
@@ -30,7 +30,7 @@ Build a standalone CLI to access Exa APIs directly (no MCP). Provide end-to-end 
 
 ## 7. Non-Functional Requirements
 - Latency: prefer `--type fast` where possible.
-- Reliability: poll fallback to SSE.
+- Reliability: polling fallback to streaming.
 - Observability: JSON outputs easily piped to logs/metrics (out-of-scope to add logging infra).
 - Maintainability: minimal deps; ruff/pylint/pyright/pytest gates.
 
@@ -45,7 +45,7 @@ Build a standalone CLI to access Exa APIs directly (no MCP). Provide end-to-end 
 
 ## 10. Risks & Mitigations
 - API changes: track Exa docs; pin SDK; keep cURL examples current.
-- SSE variability: keep polling as fallback.
+- Streaming variability: keep polling as fallback.
 
 ## 11. Metrics (Indicative)
 - CLI latency P50 for common queries (local dev measurement).

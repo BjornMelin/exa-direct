@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install project (dev)
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install -e .
+          uv pip install ruff pyright pylint pytest
+      - name: Ruff format + lint
+        run: |
+          source .venv/bin/activate
+          ruff format --check .
+          ruff check .
+      - name: Pyright
+        run: |
+          source .venv/bin/activate
+          pyright
+      - name: Pylint
+        run: |
+          source .venv/bin/activate
+          pylint src/exa_direct tests --fail-under=9.5 || true
+      - name: Pytest
+        run: |
+          source .venv/bin/activate
+          PYTHONPATH=src pytest -q

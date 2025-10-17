@@ -46,16 +46,10 @@ exa research start --instructions @examples/research_instructions.md   --schema 
 exa research poll --id <researchId> --model exa-research
 ```
 
-- Research (stream SSE):
+- Research (stream JSON-lines):
 
 ```bash
-exa research stream --id <researchId>
-```
-
-- Research (stream JSON events):
-
-```bash
-exa research stream --id <researchId> --json-events | jq '. | {event, data}'
+exa research stream --id <researchId> | jq .
 ```
 
 - Context:
@@ -63,6 +57,18 @@ exa research stream --id <researchId> --json-events | jq '. | {event, data}'
 ```bash
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
+
+
+### Examples
+
+See runnable scripts under `examples/`:
+
+- `search_examples.sh`: search filters and inline contents
+- `contents_examples.sh`: contents options (text/highlights/summary/metadata)
+- `find_similar_examples.sh`: filters plus inline contents
+- `answer_examples.sh`: structured and streaming answers (JSON-lines)
+- `research_examples.sh`: start/poll/stream/get/list flows
+- `context_example.sh`: Exa Code context queries
 
 ### Use with LLM Agents (no MCP)
 
@@ -73,8 +79,8 @@ exa context query --query "pandas groupby examples" --tokensNum dynamic
 - Keys: set `EXA_API_KEY` in the agent/container environment or pass `--api-key` per invocation.
 - Safety & ops: validate/sanitize user input passed to the shell; restrict flags and apply timeouts; capture stderr
   for HTTP errors; consider retry with backoff on transient failures.
-- Streaming: SSE prints only event‑stream lines; if your framework cannot stream, switch to polling and print the
-  final JSON on completion. Or use `--json-events` to emit one JSON object per event.
+- Streaming: `exa research stream` emits JSON-lines (one object per line) using typed SDK events. If your framework
+  cannot stream, switch to polling and print the final JSON on completion.
 
 ## Research 2.0 Quickstart
 

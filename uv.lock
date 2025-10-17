@@ -174,7 +174,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "exa-py" },
-    { name = "requests" },
+    { name = "httpx" },
 ]
 
 [package.dev-dependencies]
@@ -188,7 +188,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "exa-py", specifier = ">=1.16.1,<2.0" },
-    { name = "requests", specifier = ">=2.32,<3.0" },
+    { name = "httpx", specifier = ">=0.27,<1.0" },
 ]
 
 [package.metadata.requires-dev]

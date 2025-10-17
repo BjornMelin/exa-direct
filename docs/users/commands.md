@@ -73,10 +73,14 @@ Poll (presets: fast=10, exa-research=30, pro=40 seconds):
 exa research poll --id <researchId> --model exa-research
 ```
 
-Stream SSE:
+Stream (JSON-lines):
 
 ```bash
-exa research stream --id <researchId>
+exa research stream --id <researchId> | jq .
+
+### Examples
+
+- See `examples/search_examples.sh`, `examples/contents_examples.sh`, `examples/find_similar_examples.sh`, `examples/answer_examples.sh`, `examples/research_examples.sh`, and `examples/context_example.sh`.
 ```
 
 Docs:

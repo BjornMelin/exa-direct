@@ -17,7 +17,7 @@
 ### Research stream shows no events
 
 - Verify the `researchId` from `research start`.
-- Try polling (`exa research poll --id <id>`) if the network blocks SSE.
+- Try polling (`exa research poll --id <id>`) if the environment blocks streaming.
 - Confirm connectivity and that the task is still running.
 
 ### JSON parsing errors
@@ -33,7 +33,7 @@
 
 - Add `--pretty` to inspect payload structure.
 - Use `jq` to filter (`... | jq '.results[0]'`).
-- For SSE, pipe to file: `exa research stream --id <id> > stream.log`.
+- For streaming, pipe to file: `exa research stream --id <id> > stream.log`.
 
 ## References
 
