@@ -47,6 +47,7 @@
 - Search (Fast):
   - `exa search --query "<text>" --type fast --pretty`
   - Optional filters: `--include-text word1 word2` (must-appear terms), `--exclude-text word3`.
+  - With inline contents: add `--text` and related options to trigger `search_and_contents`.
 - Search (Auto + domain include/exclude + dates):
   - `exa search --query "<text>" --type auto --include-domains a.com b.com --exclude-domains x.com \
     --start-published-date 2025-01-01 --end-published-date 2025-12-31 --pretty`

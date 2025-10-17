@@ -74,6 +74,12 @@ class DummyResearchService:
         yield 'data: {"progress": 50}'
         yield "event: completed"
 
+    def research_stream_events(self, *, research_id: str) -> Iterator[dict[str, Any]]:
+        """Record a research_stream_events invocation and yield structured events."""
+        self.calls.append({"method": "research_stream_events", "id": research_id})
+        yield {"event": "running", "data": {"progress": 50}}
+        yield {"event": "completed", "data": {"ok": True}}
+
     def context(self, *, query: str, tokens_num: str | int | None) -> dict[str, Any]:
         """Record a context query invocation."""
         self.calls.append({"method": "context", "query": query, "tokens": tokens_num})
@@ -137,10 +143,11 @@ def test_research_stream_json_events(
 
     # Teach dummy service to return structured events when requested
     def _events(*, research_id: str) -> Iterator[dict[str, Any]]:
+        del research_id
         yield {"event": "running", "data": {"progress": 25}}
         yield {"event": "completed", "data": {"ok": True}}
 
-    dummy_service.research_stream_events = _events  # type: ignore[attr-defined]
+    dummy_service.research_stream_events = _events
 
     exit_code = cli.main(["research", "stream", "--id", "abc", "--json-events"])
     assert exit_code == 0

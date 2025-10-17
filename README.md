@@ -148,3 +148,130 @@ uv run python -m pytest -q
   <https://docs.exa.ai/reference/research/create-a-task>, <https://docs.exa.ai/reference/research/get-a-task>,
   <https://docs.exa.ai/reference/research/list-tasks>, <https://docs.exa.ai/reference/context>,
   <https://docs.exa.ai/reference/how-exa-search-works>, <https://docs.exa.ai/reference/livecrawling-contents>
+
+## Agents SDK examples (Python/JS)
+
+Python (shell out from an agent/tool)
+
+```python
+import json
+import os
+import subprocess
+from typing import Any, Sequence
+
+
+def run_exa(args: Sequence[str]) -> dict[str, Any]:
+    env = {**os.environ, "EXA_API_KEY": os.environ.get("EXA_API_KEY", "")}
+    proc = subprocess.run(
+        ["exa", *args],
+        env=env,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    return json.loads(proc.stdout)
+
+
+def exa_search(query: str, type_: str = "fast") -> dict[str, Any]:
+    return run_exa(["search", "--query", query, "--type", type_])
+
+
+def exa_research(query_path: str, schema_path: str, model: str = "exa-research") -> dict[str, Any]:
+    start = run_exa([
+        "research", "start",
+        "--instructions", f"@{query_path}",
+        "--schema", f"@{schema_path}",
+        "--model", model,
+    ])
+    task_id = start.get("id") or start.get("taskId")  # SDK/REST variants
+    assert task_id, f"No task id in: {start}"
+    # Poll with model-aware default (override with --interval if needed)
+    return run_exa(["research", "poll", "--id", task_id, "--model", model])
+
+
+if __name__ == "__main__":
+    os.environ.setdefault("EXA_API_KEY", "sk-...set-me...")
+    print(exa_search("hybrid search vector databases"))
+```
+
+Node.js / TypeScript (child_process)
+
+```ts
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const pexecFile = promisify(execFile);
+
+async function runExa(args: string[]) {
+  const { stdout } = await pexecFile("exa", args, {
+    env: { ...process.env, EXA_API_KEY: process.env.EXA_API_KEY ?? "" },
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return JSON.parse(stdout);
+}
+
+export async function exaSearch(query: string, type = "fast") {
+  return runExa(["search", "--query", query, "--type", type]);
+}
+
+export async function exaResearch(
+  instructionsPath: string,
+  schemaPath: string,
+  model = "exa-research"
+) {
+  const start = await runExa([
+    "research", "start",
+    "--instructions", `@${instructionsPath}`,
+    "--schema", `@${schemaPath}`,
+    "--model", model,
+  ]);
+  const id = (start as any).id ?? (start as any).taskId;
+  if (!id) throw new Error(`No task id in ${JSON.stringify(start)}`);
+  return runExa(["research", "poll", "--id", id, "--model", model, "--timeout", "900"]);
+}
+
+// Example usage
+// process.env.EXA_API_KEY = "sk-...";
+// const res = await exaSearch("hybrid search vector databases");
+// console.log(res);
+```
+
+Notes
+- Escape or validate any user-provided strings passed to the shell.
+- For large outputs, add `--save /path/out.json` and read the file from your agent.
+- For real-time UX, prefer `exa research stream` where your framework supports streaming; otherwise poll.
+### Inline contents with search
+
+```bash
+# Return search results with text, highlights, and a short summary
+exa search --query "state of AGI" --text --highlights --summary-query "key points" --pretty
+
+# Advanced: constrain text length and include HTML tags; crawl subpages
+exa search --query "state of AGI" \
+  --text --text-max-characters 2000 --text-include-html-tags \
+  --highlights --highlights-num-sentences 2 --highlights-per-url 2 \
+  --summary-query "main developments" \
+  --subpages 1 --subpage-target sources \
+  --extras-links 2 --extras-image-links 1 \
+  --livecrawl preferred --livecrawl-timeout 1000 --pretty
+```
+
+### Contents (rich options)
+
+```bash
+# Full text + highlights + summary (schema)
+exa contents https://arxiv.org/abs/2307.06435 \
+  --text --highlights --summary-schema @examples/research_schema.json --pretty
+```
+
+### Find similar (with contents)
+
+```bash
+exa find-similar --url https://example.com --text --highlights --pretty
+```
+
+### Streaming answers
+
+```bash
+exa answer --query "What is the latest valuation of SpaceX?" --stream
+```

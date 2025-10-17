@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -128,6 +129,7 @@ def _register_search(
         dest="exclude_text",
         help="Terms that must not appear in text",
     )
+    _add_contents_option_flags(search_parser)
 
 
 def _register_contents(
@@ -144,19 +146,7 @@ def _register_contents(
 
     # Required arguments
     contents_parser.add_argument("urls", nargs="+", help="One or more URLs to fetch")
-
-    # Content options
-    contents_parser.add_argument(
-        "--text", action="store_true", help="Include full text"
-    )
-    contents_parser.add_argument(
-        "--highlights", action="store_true", help="Include highlights"
-    )
-    contents_parser.add_argument(
-        "--livecrawl",
-        choices=["always", "preferred", "fallback", "never"],
-        help="Livecrawl freshness preference",
-    )
+    _add_contents_option_flags(contents_parser)
 
 
 def _register_find_similar(
@@ -190,18 +180,9 @@ def _register_find_similar(
     )
 
     # Domain filters
-    similar_parser.add_argument(
-        "--include-domains",
-        nargs="*",
-        dest="include_domains",
-        help="Domains to include",
-    )
-    similar_parser.add_argument(
-        "--exclude-domains",
-        nargs="*",
-        dest="exclude_domains",
-        help="Domains to exclude",
-    )
+    similar_parser.add_argument("--include-domains", nargs="*", dest="include_domains")
+    similar_parser.add_argument("--exclude-domains", nargs="*", dest="exclude_domains")
+    _add_contents_option_flags(similar_parser)
 
 
 def _register_answer(
@@ -223,6 +204,12 @@ def _register_answer(
         action="store_true",
         dest="include_text",
         help="Include citation text",
+    )
+    answer_parser.add_argument(
+        "--stream",
+        action="store_true",
+        dest="stream",
+        help="Stream the answer as it is generated",
     )
 
 
@@ -339,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
             f"HTTP error: {error.response.status_code} {error.response.text}\n"
         )
         return 1
-    except Exception as exc:  # pylint: disable=broad-except  # noqa: BLE001
+    except (ValueError, RuntimeError, OSError, requests.RequestException) as exc:
         sys.stderr.write(f"Error: {exc}\n")
         return 1
 
@@ -366,126 +353,175 @@ def _dispatch(
     Returns:
         Command result as dictionary, or None for streaming commands.
     """
-    # pylint: disable=too-many-branches,too-many-return-statements
     command = args.command
 
-    # Search command
-    if command == "search":
-        # Build search parameters
-        params: dict[str, Any] = {
-            "num_results": args.num_results,
-            "type": args.type_,
-            "include_domains": args.include_domains,
-            "exclude_domains": args.exclude_domains,
-            "start_published_date": args.start_published_date,
-            "end_published_date": args.end_published_date,
-            "start_crawl_date": args.start_crawl_date,
-            "end_crawl_date": args.end_crawl_date,
-            "include_text": args.include_text,
-            "exclude_text": args.exclude_text,
-        }
-        cleaned_params = _clean_params(params)
-        return service.search(query=args.query, params=cleaned_params)
-    # Contents command
-    if command == "contents":
-        return service.contents(
-            urls=args.urls,
-            text=args.text,
-            highlights=args.highlights,
-            livecrawl=args.livecrawl,
-        )
+    handlers: dict[
+        str, Callable[[client.ExaService, argparse.Namespace], dict[str, Any] | None]
+    ] = {
+        "search": _handle_search,
+        "contents": _handle_contents,
+        "find-similar": _handle_find_similar,
+        "answer": _handle_answer,
+        "research": _handle_research,
+        "context": _handle_context,
+    }
 
-    # Find similar command
-    if command == "find-similar":
-        params = {
-            "num_results": args.num_results,
-            "exclude_source_domain": args.exclude_source_domain,
-            "include_domains": args.include_domains,
-            "exclude_domains": args.exclude_domains,
-        }
-        return service.find_similar(url=args.url, params=_clean_params(params))
+    try:
+        handler = handlers[command]
+    except KeyError as error:
+        raise ValueError(f"Unsupported command: {command}") from error
+    return handler(service, args)
 
-    # Answer command
-    if command == "answer":
-        return service.answer(query=args.query, include_text=args.include_text)
-    # Research commands
-    if command == "research":
-        sub = args.research_cmd
 
-        # Start research task
-        if sub == "start":
-            instructions = _read_arg_or_file(args.instructions)
-            schema = _read_json_file(args.schema) if args.schema else None
-            return service.research_start(
-                instructions=instructions,
-                model=args.model,
-                output_schema=schema,
-                infer_schema=args.infer_schema,
-            )
+def _handle_search(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Execute the search command."""
+    base = _clean_params({
+        "num_results": args.num_results,
+        "type": args.type_,
+        "include_domains": args.include_domains,
+        "exclude_domains": args.exclude_domains,
+        "start_published_date": args.start_published_date,
+        "end_published_date": args.end_published_date,
+        "start_crawl_date": args.start_crawl_date,
+        "end_crawl_date": args.end_crawl_date,
+        "include_text": args.include_text,
+        "exclude_text": args.exclude_text,
+    })
+    contents = _build_contents_options(args)
+    if contents:
+        return service.search_and_contents(query=args.query, content_params=contents)
+    return service.search(query=args.query, params=base)
 
-        # Get research task
-        if sub == "get":
-            return service.research_get(
-                research_id=args.research_id, events=args.events
-            )
 
-        # List research tasks
-        if sub == "list":
-            return service.research_list(limit=args.limit, cursor=args.cursor)
+def _handle_contents(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Execute the contents command."""
+    return service.contents(urls=args.urls, **_build_contents_options(args))
 
-        # Poll research task
-        if sub == "poll":
-            # Determine poll interval
-            interval = args.interval
-            if interval is None and args.model:
-                interval = {
-                    "exa-research-fast": 10,
-                    "exa-research": 30,
-                    "exa-research-pro": 40,
-                }[args.model]
-            if interval is None:
-                interval = 30
 
-            return service.research_poll(
-                research_id=args.research_id,
-                poll_interval=interval,
-                max_wait_time=args.timeout,
-            )
+def _handle_find_similar(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Execute the find-similar command."""
+    base = _clean_params({
+        "num_results": args.num_results,
+        "exclude_source_domain": args.exclude_source_domain,
+        "include_domains": args.include_domains,
+        "exclude_domains": args.exclude_domains,
+    })
+    contents = _build_contents_options(args)
+    if contents:
+        return service.find_similar_and_contents(url=args.url, content_params=contents)
+    return service.find_similar(url=args.url, params=base)
 
-        # Stream research task
-        if sub == "stream":
-            if getattr(args, "json_events", False):
-                # Stream parsed JSON events
-                for event in service.research_stream_events(
-                    research_id=args.research_id
-                ):
-                    print(json.dumps(event, ensure_ascii=False))
-            else:
-                # Stream raw SSE lines
-                for line in service.research_stream(research_id=args.research_id):
-                    print(line)
-            return None
-        raise ValueError(f"Unknown research subcommand: {sub}")
 
-    # Context commands
-    if command == "context":
-        if args.context_cmd == "query":
-            return service.context(query=args.query, tokens_num=args.tokens_num)
+def _handle_answer(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
+    """Execute the answer command."""
+    if getattr(args, "stream", False):
+        for chunk in service.answer_stream(
+            query=args.query, include_text=args.include_text
+        ):
+            sys.stdout.write(str(chunk))
+        sys.stdout.write("\n")
+        return None
+    return service.answer(query=args.query, include_text=args.include_text)
+
+
+def _handle_research(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
+    """Execute research subcommands."""
+    subcommand = args.research_cmd
+    actions: dict[
+        str, Callable[[client.ExaService, argparse.Namespace], dict[str, Any] | None]
+    ] = {
+        "start": _research_start,
+        "get": _research_get,
+        "list": _research_list,
+        "poll": _research_poll,
+        "stream": _research_stream,
+    }
+    try:
+        action = actions[subcommand]
+    except KeyError as error:
+        raise ValueError(f"Unknown research subcommand: {subcommand}") from error
+    return action(service, args)
+
+
+def _research_start(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Handle `research start`."""
+    instructions = _read_arg_or_file(args.instructions)
+    schema = _read_json_file(args.schema) if args.schema else None
+    return service.research_start(
+        instructions=instructions,
+        model=args.model,
+        output_schema=schema,
+        infer_schema=args.infer_schema,
+    )
+
+
+def _research_get(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Handle `research get`."""
+    return service.research_get(research_id=args.research_id, events=args.events)
+
+
+def _research_list(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Handle `research list`."""
+    return service.research_list(limit=args.limit, cursor=args.cursor)
+
+
+def _research_poll(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Handle `research poll`."""
+    interval = args.interval
+    if interval is None and args.model:
+        interval = {
+            "exa-research-fast": 10,
+            "exa-research": 30,
+            "exa-research-pro": 40,
+        }.get(args.model)
+    if interval is None:
+        interval = 30
+    return service.research_poll(
+        research_id=args.research_id,
+        poll_interval=interval,
+        max_wait_time=args.timeout,
+    )
+
+
+def _research_stream(service: client.ExaService, args: argparse.Namespace) -> None:
+    """Handle `research stream`."""
+    if getattr(args, "json_events", False):
+        for event in service.research_stream_events(research_id=args.research_id):
+            print(json.dumps(event, ensure_ascii=False))
+    else:
+        for line in service.research_stream(research_id=args.research_id):
+            print(line)
+
+
+def _handle_context(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any]:
+    """Execute context subcommands."""
+    if args.context_cmd != "query":
         raise ValueError(f"Unknown context subcommand: {args.context_cmd}")
-
-    # Unknown command
-    raise ValueError(f"Unsupported command: {command}")
+    return service.context(query=args.query, tokens_num=args.tokens_num)
 
 
 def _clean_params(raw: dict[str, Any]) -> dict[str, Any]:
-    """Drop parameters whose values are falsy/None.
-
-    Args:
-        raw: Dictionary of parameters to clean.
-
-    Returns:
-        Dictionary with falsy/None values removed.
-    """
+    """Drop parameters whose values are falsy/None."""
     return {key: value for key, value in raw.items() if value not in (None, [], False)}
 
 
@@ -507,6 +543,118 @@ def _read_arg_or_file(value: str) -> str:
 def _read_json_file(path: str) -> dict[str, Any]:
     """Read a JSON file into a dict."""
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _add_contents_option_flags(p: argparse.ArgumentParser) -> None:
+    """Add contents-related flags to a parser."""
+    # Text
+    p.add_argument("--text", action="store_true", help="Include full text")
+    p.add_argument("--text-max-characters", type=int, dest="text_max_chars")
+    p.add_argument(
+        "--text-include-html-tags",
+        action="store_true",
+        dest="text_include_html",
+        help="Include HTML tags in text",
+    )
+    # Highlights
+    p.add_argument("--highlights", action="store_true", help="Include highlights")
+    p.add_argument("--highlights-num-sentences", type=int, dest="hl_num_sentences")
+    p.add_argument("--highlights-per-url", type=int, dest="hl_per_url")
+    p.add_argument("--highlights-query", dest="hl_query")
+    # Summary
+    p.add_argument("--summary-query", dest="summary_query")
+    p.add_argument("--summary-schema", dest="summary_schema")
+    # Subpages
+    p.add_argument("--subpages", type=int, dest="subpages")
+    p.add_argument("--subpage-target", dest="subpage_target")
+    # Extras
+    p.add_argument("--extras-links", type=int, dest="extras_links")
+    p.add_argument("--extras-image-links", type=int, dest="extras_image_links")
+    # Context
+    p.add_argument("--context", action="store_true", dest="context")
+    p.add_argument("--context-max-characters", type=int, dest="context_max_chars")
+    # Livecrawl
+    p.add_argument(
+        "--livecrawl",
+        choices=["always", "preferred", "fallback", "never"],
+        help="Livecrawl freshness preference",
+    )
+    p.add_argument("--livecrawl-timeout", type=int, dest="livecrawl_timeout")
+
+
+def _build_contents_options(args: argparse.Namespace) -> dict[str, Any]:
+    """Build SDK contents options from parsed args (snake_case keys)."""
+    opts: dict[str, Any] = {}
+    # text
+    if getattr(args, "text", False) or (
+        getattr(args, "text_max_chars", None) is not None
+        or getattr(args, "text_include_html", False)
+    ):
+        if args.text_max_chars is not None or args.text_include_html:
+            t: dict[str, Any] = {}
+            if getattr(args, "text_max_chars", None) is not None:
+                t["max_characters"] = args.text_max_chars
+            if getattr(args, "text_include_html", False):
+                t["include_html_tags"] = True
+            opts["text"] = t
+        else:
+            opts["text"] = True
+    # highlights
+    if getattr(args, "highlights", False) or any(
+        getattr(args, name, None) is not None
+        for name in ("hl_num_sentences", "hl_per_url", "hl_query")
+    ):
+        h: dict[str, Any] = {}
+        if args.hl_num_sentences is not None:
+            h["num_sentences"] = args.hl_num_sentences
+        if args.hl_per_url is not None:
+            h["highlights_per_url"] = args.hl_per_url
+        if args.hl_query:
+            h["query"] = args.hl_query
+        opts["highlights"] = h or True
+    # summary
+    if getattr(args, "summary_query", None) or getattr(args, "summary_schema", None):
+        s: dict[str, Any] = {}
+        if args.summary_query:
+            s["query"] = args.summary_query
+        if args.summary_schema:
+            s["schema"] = _read_json_file(args.summary_schema)
+        opts["summary"] = s
+    # subpages
+    if getattr(args, "subpages", None) is not None:
+        opts["subpages"] = args.subpages
+    if getattr(args, "subpage_target", None):
+        target = args.subpage_target
+        if "," in target:
+            opts["subpage_target"] = [p.strip() for p in target.split(",") if p.strip()]
+        else:
+            opts["subpage_target"] = target
+    # extras
+    if (
+        getattr(args, "extras_links", None) is not None
+        or getattr(args, "extras_image_links", None) is not None
+    ):
+        ex: dict[str, Any] = {}
+        if args.extras_links is not None:
+            ex["links"] = args.extras_links
+        if args.extras_image_links is not None:
+            ex["image_links"] = args.extras_image_links
+        opts["extras"] = ex
+    # context
+    if (
+        getattr(args, "context", False)
+        or getattr(args, "context_max_chars", None) is not None
+    ):
+        if args.context_max_chars is not None:
+            opts["context"] = {"max_characters": args.context_max_chars}
+        else:
+            opts["context"] = True
+    # livecrawl
+    if getattr(args, "livecrawl", None):
+        opts["livecrawl"] = args.livecrawl
+    if getattr(args, "livecrawl_timeout", None) is not None:
+        opts["livecrawl_timeout"] = args.livecrawl_timeout
+    return opts
 
 
 if __name__ == "__main__":

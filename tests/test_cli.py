@@ -24,28 +24,48 @@ class DummyService:
         self.calls.append({"method": "search", "query": query, "params": params})
         return {"results": []}
 
-    def contents(
-        self,
-        *,
-        urls: list[str],
-        text: bool,
-        highlights: bool,
-        livecrawl: str | None,
-    ) -> dict[str, Any]:
+    def contents(self, *, urls: list[str], **options: Any) -> dict[str, Any]:
         """Record contents call and return mock response."""
-        self.calls.append({
-            "method": "contents",
-            "urls": urls,
-            "text": text,
-            "highlights": highlights,
-            "livecrawl": livecrawl,
-        })
+        rec = {"method": "contents", "urls": urls, "options": options}
+        self.calls.append(rec)
         return {"requestId": "abc"}
 
     def find_similar(self, *, url: str, params: dict[str, Any]) -> dict[str, Any]:
         """Record find_similar call and return mock response."""
         self.calls.append({"method": "find_similar", "url": url, "params": params})
         return {"results": ["example"]}
+
+    def search_and_contents(
+        self, *, query: str, content_params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Record search_and_contents call and return mock response."""
+        self.calls.append({
+            "method": "search_and_contents",
+            "query": query,
+            "content_params": content_params,
+        })
+        return {"results": []}
+
+    def find_similar_and_contents(
+        self, *, url: str, content_params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Record find_similar_and_contents call and return mock response."""
+        self.calls.append({
+            "method": "find_similar_and_contents",
+            "url": url,
+            "content_params": content_params,
+        })
+        return {"results": ["example"]}
+
+    def answer_stream(self, *, query: str, include_text: bool) -> Any:
+        """Yield streamed answer chunks."""
+        self.calls.append({
+            "method": "answer_stream",
+            "query": query,
+            "include_text": include_text,
+        })
+        yield "Paris"
+        yield " is the capital of France."
 
     def answer(self, *, query: str, include_text: bool) -> dict[str, Any]:
         """Record answer call and return mock response."""
@@ -112,15 +132,56 @@ def test_contents_invokes_service(
     stdout = capsys.readouterr().out
     assert json.loads(stdout) == {"requestId": "abc"}
     assert json.loads(output_path.read_text(encoding="utf-8")) == {"requestId": "abc"}
-    assert dummy_service.calls == [
-        {
-            "method": "contents",
-            "urls": ["https://example.com", "https://another.example"],
-            "text": True,
-            "highlights": True,
-            "livecrawl": "preferred",
-        }
+    assert dummy_service.calls[0]["method"] == "contents"
+    assert dummy_service.calls[0]["urls"] == [
+        "https://example.com",
+        "https://another.example",
     ]
+    assert dummy_service.calls[0]["options"]["text"] is True
+    assert dummy_service.calls[0]["options"]["highlights"] is True
+    assert dummy_service.calls[0]["options"]["livecrawl"] == "preferred"
+
+
+def test_search_with_text_uses_search_and_contents(
+    dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Search with --text should call search_and_contents."""
+    exit_code = cli.main(["search", "--query", "DeepMind", "--text"])
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out) == {"results": []}
+    assert dummy_service.calls[0]["method"] == "search_and_contents"
+    assert dummy_service.calls[0]["content_params"]["text"] is True
+
+
+def test_find_similar_with_text_uses_find_similar_and_contents(
+    dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """find-similar with --text should call find_similar_and_contents."""
+    exit_code = cli.main([
+        "find-similar",
+        "--url",
+        "https://example.com",
+        "--text",
+    ])
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out) == {"results": ["example"]}
+    assert dummy_service.calls[0]["method"] == "find_similar_and_contents"
+    assert dummy_service.calls[0]["content_params"]["text"] is True
+
+
+def test_answer_stream(
+    dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Answer with --stream streams chunks to stdout."""
+    exit_code = cli.main([
+        "answer",
+        "--query",
+        "What is the capital of France?",
+        "--stream",
+    ])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "Paris" in out and "capital of France" in out
 
 
 def test_find_similar_invokes_service(

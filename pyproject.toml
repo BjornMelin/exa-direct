@@ -123,6 +123,8 @@ exclude = [
   "**/site-packages",
   "/home/bjorn/.local/share/uv/python/**",
 ]
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -11,7 +11,7 @@ import json
 import os
 import time
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping
-from typing import Any
+from typing import Any, cast
 
 import requests
 from exa_py import Exa
@@ -60,48 +60,50 @@ class ExaService:
         response = self._exa.search(query, **params)
         return _to_dict(response)
 
+    def search_and_contents(
+        self, *, query: str, content_params: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Search and retrieve contents in one call via SDK."""
+        response = self._exa.search_and_contents(query, **content_params)
+        return _to_dict(response)
+
     def contents(
         self,
         *,
         urls: Iterable[str],
-        text: bool,
-        highlights: bool,
-        livecrawl: str | None,
+        text: bool | Mapping[str, Any] | None = None,
+        highlights: Mapping[str, Any] | bool | None = None,
+        summary: Mapping[str, Any] | None = None,
+        subpages: int | None = None,
+        subpage_target: str | list[str] | None = None,
+        extras: Mapping[str, Any] | None = None,
+        context: bool | Mapping[str, Any] | None = None,
+        livecrawl: str | None = None,
+        livecrawl_timeout: int | None = None,
     ) -> dict[str, Any]:
-        """Fetch page contents for the provided URLs.
-
-        Args:
-            urls: URLs to fetch content from.
-            text: Whether to include full page text.
-            highlights: Whether to include text highlights/snippets.
-            livecrawl: Livecrawling strategy ("preferred", "always", etc.).
-
-        Returns:
-            Dictionary containing page contents for each URL.
-        """
-        # Build request payload
+        """Fetch page contents using the SDK with rich options."""
         payload: MutableMapping[str, Any] = {"urls": list(urls)}
-
-        # Add optional content flags
-        if text:
-            payload["text"] = True
+        if text is not None:
+            payload["text"] = text
         if highlights:
-            payload["highlights"] = True
+            payload["highlights"] = highlights
+        if summary:
+            payload["summary"] = summary
+        if subpages is not None:
+            payload["subpages"] = subpages
+        if subpage_target is not None:
+            payload["subpage_target"] = subpage_target
+        if extras:
+            payload["extras"] = extras
+        if context is not None:
+            payload["context"] = context
         if livecrawl:
             payload["livecrawl"] = livecrawl
+        if livecrawl_timeout is not None:
+            payload["livecrawl_timeout"] = livecrawl_timeout
 
-        # Make API request
-        response = self._session.post(
-            f"{_API_BASE}/contents",
-            headers={
-                "x-api-key": self._api_key,
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json()
+        response = self._exa.get_contents(**payload)
+        return _to_dict(response)
 
     def find_similar(self, *, url: str, params: Mapping[str, Any]) -> dict[str, Any]:
         """Find pages similar to the given URL.
@@ -116,6 +118,13 @@ class ExaService:
         response = self._exa.find_similar(url=url, **params)
         return _to_dict(response)
 
+    def find_similar_and_contents(
+        self, *, url: str, content_params: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Find similar and retrieve contents in one call via SDK."""
+        response = self._exa.find_similar_and_contents(url=url, **content_params)
+        return _to_dict(response)
+
     def answer(self, *, query: str, include_text: bool) -> dict[str, Any]:
         """Generate an answer with citations.
 
@@ -128,6 +137,12 @@ class ExaService:
         """
         response = self._exa.answer(query=query, text=include_text)
         return _to_dict(response)
+
+    def answer_stream(self, *, query: str, include_text: bool) -> Iterator[str]:
+        """Stream an answer via the SDK, yielding text chunks."""
+        stream = self._exa.stream_answer(query, text=include_text)
+        for chunk in stream:
+            yield str(chunk)
 
     # --- Research API ---
 
@@ -164,9 +179,7 @@ class ExaService:
 
     def research_get(self, *, research_id: str, events: bool = False) -> dict[str, Any]:
         """Return research task details using the SDK."""
-        result = self._exa.research.get(  # type: ignore[attr-defined]
-            task_id=research_id, events=events
-        )
+        result = self._exa.research.get(task_id=research_id, events=events)  # type: ignore[attr-defined]
         return _to_dict(result)
 
     def research_list(
@@ -181,9 +194,7 @@ class ExaService:
         Returns:
             Dictionary containing list of research tasks.
         """
-        result = self._exa.research.list(  # type: ignore[attr-defined]
-            limit=limit, cursor=cursor
-        )
+        result = self._exa.research.list(limit=limit, cursor=cursor)  # type: ignore[attr-defined]
         return _to_dict(result)
 
     def research_poll(
@@ -271,7 +282,7 @@ class ExaService:
                 payload = line[len("data:") :].strip()
                 try:
                     current["data"] = json.loads(payload)
-                except Exception:  # noqa: BLE001 - allow non-JSON payloads
+                except json.JSONDecodeError:
                     # Fallback to raw string if JSON parsing fails
                     current["data"] = payload
 
@@ -338,7 +349,8 @@ def _to_dict(response: Any) -> dict[str, Any]:
 
     # Try dict() method for older SDK versions
     if hasattr(response, "dict"):
-        return response.dict()  # type: ignore[return-value]
+        raw = cast(Mapping[str, Any], response.dict())
+        return dict(raw)
 
     # Handle mapping-like objects
     if isinstance(response, Mapping):

@@ -2,74 +2,37 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
+from contextlib import nullcontext
+from types import MethodType, SimpleNamespace
 from typing import Any
 
 import pytest
+import requests
 
 from exa_direct import client as client_module
 
 
-class _FakeResp:
-    """Minimal Response stub supporting .status_code/.json()/.raise_for_status()."""
-
-    def __init__(self, status_code: int, payload: dict[str, Any]) -> None:
-        """Initialize the fake response."""
-        self.status_code = status_code
-        self._payload = payload
-
-    def raise_for_status(self) -> None:
-        """No-op unless error status is simulated in tests."""
-        if 400 <= self.status_code:
-            import requests
-
-            raise requests.HTTPError(response=self)  # type: ignore[arg-type]
-
-    def json(self) -> dict[str, Any]:
-        """Return the payload as JSON."""
-        return self._payload
-
-
-class _CM:
-    """Context manager for streaming GET that yields given lines."""
-
-    def __init__(self, status_code: int, lines: list[str]) -> None:
-        """Initialize the context manager."""
-        self.status_code = status_code
-        self._lines = lines
-
-    def __enter__(self) -> _CM:
-        """Enter the context manager."""
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        """Exit the context manager."""
-        return
-
-    def raise_for_status(self) -> None:
-        """Raise an HTTPError if the status code is 400 or higher."""
-        if 400 <= self.status_code:
-            import requests
-
-            raise requests.HTTPError(response=self)  # type: ignore[arg-type]
-
-    def iter_lines(self, decode_unicode: bool) -> Iterator[str]:
-        """Yield preloaded lines."""
-        yield from self._lines
+def _make_response(status_code: int, payload: dict[str, Any]) -> requests.Response:
+    """Construct a real requests.Response populated with the given payload."""
+    response = requests.Response()
+    response.status_code = status_code
+    response.headers["Content-Type"] = "application/json"
+    object.__setattr__(response, "_content", json.dumps(payload).encode("utf-8"))
+    return response
 
 
 def test_research_get_via_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
     """research_get should call SDK 'get' directly."""
 
-    class _Research:
-        """Fake research class."""
-
-        def get(self, *, task_id: str, events: bool) -> dict[str, Any]:
-            """Return payload."""
-            return {"id": task_id, "events": events, "status": "running"}
+    def _get(*, task_id: str, events: bool) -> dict[str, Any]:
+        return {"id": task_id, "events": events, "status": "running"}
 
     svc = client_module.ExaService("k")
-    monkeypatch.setattr(svc, "_exa", type("_E", (), {"research": _Research()})())
+    monkeypatch.setattr(
+        svc, "_exa", SimpleNamespace(research=SimpleNamespace(get=_get))
+    )
 
     out = svc.research_get(research_id="abc", events=True)
     assert out == {"id": "abc", "events": True, "status": "running"}
@@ -80,14 +43,17 @@ def test_research_stream_events_parse(monkeypatch: pytest.MonkeyPatch) -> None:
     svc = client_module.ExaService("k")
 
     def _fake_get(
-        url: str,
+        _url: str,
         headers: dict[str, str],
         params: dict[str, Any],
         stream: bool,
         timeout: int,
-    ) -> _CM:
+    ):
         """Fake GET method."""
         assert params == {"stream": "true"}
+        assert stream is True
+        del headers
+        del timeout
         lines = [
             "event: running",
             'data: {"progress": 50}',
@@ -95,7 +61,22 @@ def test_research_stream_events_parse(monkeypatch: pytest.MonkeyPatch) -> None:
             "event: completed",
             'data: {"ok": true}',
         ]
-        return _CM(200, lines)
+
+        response = _make_response(200, {})
+
+        def _iter_lines(
+            _self: requests.Response, decode_unicode: bool
+        ) -> Iterator[str]:
+            del decode_unicode
+            yield from lines
+
+        object.__setattr__(
+            response,
+            "iter_lines",
+            MethodType(_iter_lines, response),
+        )
+
+        return nullcontext(response)
 
     monkeypatch.setattr(
         svc,
