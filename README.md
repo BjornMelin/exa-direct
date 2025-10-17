@@ -126,6 +126,8 @@ See runnable scripts under `examples/`:
 
 See the [docs index](docs/index.md) for user and developer guides and ADRs.
 
+See [CHANGELOG](CHANGELOG.md) for release notes (latest: v0.1.0).
+
 ### Examples
 
 - Python agent helpers: `examples/agents_python.py`

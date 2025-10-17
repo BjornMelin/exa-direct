@@ -1,12 +1,18 @@
 # Changelog
 
-## 2025-10-17
+## [0.1.0] - 2025-10-17
 
 ### Added
 
 - Structured Research SSE parsing in client: `research_stream_events()` returns `{event, data}` objects.
 - CLI `research stream --json-events` to emit one JSON object per SSE event.
 - CLI `answer --stream` to stream answer chunks via SDK.
+- Context transport improvements:
+  - HTTP/2 enabled for the Context HTTP client.
+  - Minimal exponential backoff on transient errors (RequestError, HTTP 5xx): 0.1s, 0.2s, 0.5s, then final attempt.
+- CI matrix runs on Python 3.11 (GIL) and 3.14 (free-threading) with a best‑effort print of `Py_GIL_DISABLED`.
+- Unit tests for Context backoff (`tests/unit/test_context_backoff.py`).
+- Project metadata: Python version classifiers for 3.10, 3.11, 3.14.
 - Rich contents options across commands (mapped to SDK fields):
   - `--text`, `--text-max-characters`, `--text-include-html-tags`
   - `--highlights`, `--highlights-num-sentences`, `--highlights-per-url`, `--highlights-query`
@@ -32,6 +38,7 @@
 - Client answer streaming now uses SDK `stream_answer(...)`.
 - CLI routing extended with contents option builder and answer streaming branch.
 - Docstrings normalized to concise Google-style; minor line wraps for readability.
+- CLI and error handling now use httpx-only (removed `requests` from runtime CLI code).
 - Research param alignment with latest exa_py:
   - `research_get` now calls `research.get(research_id, ...)` (no `task_id`).
   - `research_poll` relies on SDK defaults via `poll_until_finished(research_id)`.
@@ -39,7 +46,7 @@
   - Kept `--preset` as a convenience hint; polling behavior remains SDK-default.
   - Switched research streaming to SDK typed events; CLI emits JSON-lines only.
   - Added `answer --stream --json-lines` for agent-friendly chunk events.
-  - HTTP client: switch to `httpx.Client` for `/context` endpoint; unified error handling.
+  - HTTP client: `httpx.Client` for `/context` endpoint; HTTP/2 + timeout enabled; unified error handling.
 
 ### Fixed
 
@@ -55,15 +62,14 @@
   - HTTP fallback for `research_get`.
 - Unnecessary `_sleep` wrapper.
 
-### Tooling / Dependencies
+### CI / Tooling / Dependencies
 
-- Enforce `exa_py>=1.16.1,<2.0` supporting final research surface.
-- Runtime deps: `httpx>=0.27,<1.0`.
-- Dev deps: `ruff`, `pyright`, `pylint>=4.0.1,<5.0`, `pytest>=8.4.2,<9.0`.
-- Ruff preview mode already enabled in `pyproject.toml`; lint/typing/test gates run in CI scripts locally.
-- Add `ExaService.context` retry tests for request errors, server 5xxs, exhausted attempts, and non-retriable statuses.
+- Enforce `exa_py>=1.16.1,<2.0` and `httpx>=0.27,<1.0`.
+- Ruff, Pyright, Pylint (≥9.5), Pytest wired in CI.
+- Added Python version classifiers; `requires-python = ">=3.10"`.
 
 ### Documentation
 
 - README: Research 2.0 quickstart; inline contents with search; rich contents options; streaming answers.
 - AGENTS.md: Expanded agent routing to include rich contents options and `answer --stream`.
+- README/Quickstart: Transport notes for Context client (HTTP/2, timeout, short backoff).
