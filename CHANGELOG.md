@@ -57,10 +57,11 @@
 
 ### Tooling / Dependencies
 
-- Enforced SDK version supporting final research surface: `exa_py>=1.16.1,<2.0`.
+- Enforce `exa_py>=1.16.1,<2.0` supporting final research surface.
 - Runtime deps: `requests>=2.32,<3.0`.
 - Dev deps: `ruff`, `pyright`, `pylint>=4.0.1,<5.0`, `pytest>=8.4.2,<9.0`.
 - Ruff preview mode already enabled in `pyproject.toml`; lint/typing/test gates run in CI scripts locally.
+- Add `ExaService.context` retry tests for request errors, server 5xxs, exhausted attempts, and non-retriable statuses.
 
 ### Documentation
 
