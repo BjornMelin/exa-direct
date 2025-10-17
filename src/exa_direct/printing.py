@@ -14,7 +14,6 @@ def print_json(data: Any, *, pretty: bool = False) -> None:
     Args:
         data: Any JSON-serializable value.
         pretty: Whether to indent output for readability.
-
     """
     if pretty:
         sys.stdout.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
@@ -31,7 +30,6 @@ def save_json(path: str, data: Any, *, pretty: bool = True) -> None:
         path: Output file path.
         data: Any JSON-serializable value.
         pretty: Whether to indent output for readability.
-
     """
     target = Path(path)
     if pretty:
