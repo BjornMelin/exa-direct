@@ -153,6 +153,39 @@
 - “Create a table comparing X/Y/Z with fields …” → `research start` with `@schema.json`; then `poll` or `stream`.
 - "I need code examples for `<library>` `<topic>`" → `context query --tokensNum dynamic`.
 
+## Agent Routing (Copy/Paste)
+
+Use this snippet in your own AGENTS.md to enable GPT‑5‑Codex/GPT‑5 agents to call the Exa CLI deterministically.
+
+- Tool: `exa` (CLI)
+- Env: requires `EXA_API_KEY`; or pass `--api-key` per call.
+- Output: JSON to stdout; add `--pretty` and/or `--save path.json`.
+
+### When to call
+
+- Find sources/links → `exa search --query "…" [--type fast|auto] [filters]`
+- Fetch contents/highlights → `exa contents <urls…> [--text] [--highlights] [--livecrawl preferred]`
+- Find similar → `exa find-similar --url <url> [--exclude-source-domain]`
+- Answer with citations → `exa answer --query "…" [--include-text]`
+- Long-form research (schema recommended):
+  - Create → `exa research start --instructions "…" [--model exa-research|exa-research-pro] [--schema @schema.json] [--infer-schema]`
+  - Get → `exa research get --id <id> [--events]`
+  - List → `exa research list [--limit N] [--cursor CUR]`
+  - Poll → `exa research poll --id <id> [--model exa-research[-fast|-pro]] [--interval SECS] [--timeout 900]`
+  - Stream → `exa research stream --id <id> [--json-events]`
+- Code context → `exa context query --query "…" --tokensNum dynamic`
+
+### Defaults
+
+- Models: `exa-research-fast` (fast), `exa-research` (balanced), `exa-research-pro` (thorough).
+- Prefer schema-driven outputs (≤8 top-level fields, shallow nesting, add descriptions).
+- Livecrawling: use `preferred` for freshness; `always` only when strictly required.
+
+### Safety & limits
+
+- Back off on 429/5xx; use `--type fast` for interactive loops.
+- Always capture stdout JSON; use `--save` to persist.
+
 ## References (read when needed)
 
 - API overview: https://exa.ai/blog/exa-api-2-0
