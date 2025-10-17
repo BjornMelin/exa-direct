@@ -7,13 +7,16 @@ Documentation is organized for end users and developers.
 
 - **Quickstart:** [Quickstart](users/quickstart.md)
 - **Commands & Examples:** [Commands & Examples](users/commands.md)
+- **Recipes:** [Recipes](users/recipes.md)
 - **Troubleshooting:** [Troubleshooting](users/troubleshooting.md)
+- **Best Practices:** [Best Practices](users/best_practices.md)
 
 ## Developer Guide
 
 - **Architecture:** [Architecture](developers/architecture.md)
 - **Testing & Quality Gates:** [Testing & Quality Gates](developers/testing.md)
 - **Contributing Guidelines:** [Contributing Guidelines](developers/contributing.md)
+- **Code Reviews & Analysis:** [Code Reviews & Analysis](developers/reviews.md)
 - **Architecture Decision Records (ADRs):**
   - **ADR-0001:** [ADR-0001](developers/adr/ADR-0001.md)
   - **ADR-0002:** [ADR-0002](developers/adr/ADR-0002.md)
