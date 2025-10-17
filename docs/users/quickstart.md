@@ -61,6 +61,11 @@ exa research stream --id <researchId> | jq .
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
 
+### Transport notes (Context)
+
+The Context client uses HTTP/2 with a total timeout. Transient network
+errors and HTTP 5xx responses are retried with short backoff
+(0.1s, 0.2s, 0.5s) before a final attempt.
 
 ## References
 
