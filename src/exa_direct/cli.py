@@ -399,18 +399,7 @@ def _handle_search(
     service: client.ExaService, args: argparse.Namespace
 ) -> dict[str, Any]:
     """Execute the search command."""
-    base = _clean_params({
-        "num_results": args.num_results,
-        "type": args.type_,
-        "include_domains": args.include_domains,
-        "exclude_domains": args.exclude_domains,
-        "start_published_date": args.start_published_date,
-        "end_published_date": args.end_published_date,
-        "start_crawl_date": args.start_crawl_date,
-        "end_crawl_date": args.end_crawl_date,
-        "include_text": args.include_text,
-        "exclude_text": args.exclude_text,
-    })
+    base = _build_search_filters(args)
     contents = _build_contents_options(args)
     if contents:
         return service.search_and_contents(
@@ -430,20 +419,7 @@ def _handle_find_similar(
     service: client.ExaService, args: argparse.Namespace
 ) -> dict[str, Any]:
     """Execute the find-similar command."""
-    base = _clean_params({
-        "num_results": args.num_results,
-        "exclude_source_domain": args.exclude_source_domain,
-        "include_domains": args.include_domains,
-        "exclude_domains": args.exclude_domains,
-        "include_text": getattr(args, "include_text", None),
-        "exclude_text": getattr(args, "exclude_text", None),
-        "start_published_date": getattr(args, "start_published_date", None),
-        "end_published_date": getattr(args, "end_published_date", None),
-        "start_crawl_date": getattr(args, "start_crawl_date", None),
-        "end_crawl_date": getattr(args, "end_crawl_date", None),
-        "category": getattr(args, "category", None),
-        "flags": getattr(args, "flags", None),
-    })
+    base = _build_find_filters(args)
     contents = _build_contents_options(args)
     if contents:
         return service.find_similar_and_contents(
@@ -457,40 +433,16 @@ def _handle_answer(
 ) -> dict[str, Any] | None:
     """Execute the answer command."""
     if getattr(args, "stream", False):
+        opts = _build_answer_options(args)
         if getattr(args, "json_lines", False):
-            schema = _read_json_file(args.output_schema) if args.output_schema else None
-            for event in service.answer_stream_json(
-                query=args.query,
-                include_text=args.include_text,
-                model=args.model,
-                system_prompt=args.system_prompt,
-                output_schema=schema,
-                user_location=args.user_location,
-            ):
+            for event in service.answer_stream_json(query=args.query, **opts):
                 print(json.dumps(event, ensure_ascii=False))
             return None
-        else:
-            schema = _read_json_file(args.output_schema) if args.output_schema else None
-            for chunk in service.answer_stream(
-                query=args.query,
-                include_text=args.include_text,
-                model=args.model,
-                system_prompt=args.system_prompt,
-                output_schema=schema,
-                user_location=args.user_location,
-            ):
-                sys.stdout.write(str(chunk))
-            sys.stdout.write("\n")
-            return None
-    schema = _read_json_file(args.output_schema) if args.output_schema else None
-    return service.answer(
-        query=args.query,
-        include_text=args.include_text,
-        model=args.model,
-        system_prompt=args.system_prompt,
-        output_schema=schema,
-        user_location=args.user_location,
-    )
+        for chunk in service.answer_stream(query=args.query, **opts):
+            sys.stdout.write(str(chunk))
+        sys.stdout.write("\n")
+        return None
+    return service.answer(query=args.query, **_build_answer_options(args))
 
 
 def _handle_research(
@@ -587,6 +539,61 @@ def _read_arg_or_file(value: str) -> str:
 def _read_json_file(path: str) -> dict[str, Any]:
     """Read a JSON file into a dict."""
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _build_search_filters(args: argparse.Namespace) -> dict[str, Any]:
+    """Build search filter parameters from CLI args."""
+    return _clean_params({
+        "num_results": args.num_results,
+        "type": args.type_,
+        "include_domains": args.include_domains,
+        "exclude_domains": args.exclude_domains,
+        "start_published_date": args.start_published_date,
+        "end_published_date": args.end_published_date,
+        "start_crawl_date": args.start_crawl_date,
+        "end_crawl_date": args.end_crawl_date,
+        "include_text": args.include_text,
+        "exclude_text": args.exclude_text,
+        "use_autoprompt": args.use_autoprompt,
+        "category": args.category,
+        "user_location": args.user_location,
+        "moderation": args.moderation,
+        "flags": args.flags,
+    })
+
+
+def _build_find_filters(args: argparse.Namespace) -> dict[str, Any]:
+    """Build find-similar filter parameters from CLI args."""
+    return _clean_params({
+        "num_results": args.num_results,
+        "exclude_source_domain": args.exclude_source_domain,
+        "include_domains": args.include_domains,
+        "exclude_domains": args.exclude_domains,
+        "include_text": getattr(args, "include_text", None),
+        "exclude_text": getattr(args, "exclude_text", None),
+        "start_published_date": getattr(args, "start_published_date", None),
+        "end_published_date": getattr(args, "end_published_date", None),
+        "start_crawl_date": getattr(args, "start_crawl_date", None),
+        "end_crawl_date": getattr(args, "end_crawl_date", None),
+        "category": getattr(args, "category", None),
+        "flags": getattr(args, "flags", None),
+    })
+
+
+def _build_answer_options(args: argparse.Namespace) -> dict[str, Any]:
+    """Build answer options for service calls (includes include_text)."""
+    schema = _read_json_file(args.output_schema) if args.output_schema else None
+    # include_text must be passed even when False; do not drop it
+    opts: dict[str, Any] = {"include_text": args.include_text}
+    opts.update(
+        _clean_params({
+            "model": args.model,
+            "system_prompt": args.system_prompt,
+            "output_schema": schema,
+            "user_location": args.user_location,
+        })
+    )
+    return opts
 
 
 def _add_contents_option_flags(p: argparse.ArgumentParser) -> None:

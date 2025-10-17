@@ -384,8 +384,3 @@ def _to_dict(response: Any) -> dict[str, Any]:
 
     # Unsupported type
     raise TypeError(f"Unsupported response type: {type(response)!r}")
-
-
-def _sleep(seconds: float) -> None:
-    """Sleep for the specified number of seconds."""
-    time.sleep(seconds)
