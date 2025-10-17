@@ -29,22 +29,22 @@ class DummyResearchService:
         infer_schema: bool,
     ) -> dict[str, Any]:
         """Record a research_start invocation."""
-        self.calls.append(
-            {
-                "method": "research_start",
-                "instructions": instructions,
-                "model": model,
-                "schema": output_schema,
-                "infer": infer_schema,
-            }
-        )
+        self.calls.append({
+            "method": "research_start",
+            "instructions": instructions,
+            "model": model,
+            "schema": output_schema,
+            "infer": infer_schema,
+        })
         return {"id": "task-1"}
 
     def research_get(self, *, research_id: str, events: bool) -> dict[str, Any]:
         """Record a research_get invocation."""
-        self.calls.append(
-            {"method": "research_get", "id": research_id, "events": events}
-        )
+        self.calls.append({
+            "method": "research_get",
+            "id": research_id,
+            "events": events,
+        })
         payload: dict[str, Any] = {"id": research_id, "status": "running"}
         if events:
             payload["events"] = [{"event": "task_submitted"}]
@@ -59,14 +59,12 @@ class DummyResearchService:
         self, *, research_id: str, poll_interval: int, max_wait_time: int
     ) -> dict[str, Any]:
         """Record a research_poll invocation."""
-        self.calls.append(
-            {
-                "method": "research_poll",
-                "id": research_id,
-                "interval": poll_interval,
-                "timeout": max_wait_time,
-            }
-        )
+        self.calls.append({
+            "method": "research_poll",
+            "id": research_id,
+            "interval": poll_interval,
+            "timeout": max_wait_time,
+        })
         return {"id": research_id, "status": "completed", "data": {"ok": True}}
 
     def research_stream(self, *, research_id: str) -> Iterator[str]:
@@ -95,17 +93,15 @@ def test_research_start(
     dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """CLI research start should call service and print task id."""
-    exit_code = cli.main(
-        [
-            "research",
-            "start",
-            "--instructions",
-            "Find latest GPU roadmaps",
-            "--model",
-            "exa-research-fast",
-            "--infer-schema",
-        ]
-    )
+    exit_code = cli.main([
+        "research",
+        "start",
+        "--instructions",
+        "Find latest GPU roadmaps",
+        "--model",
+        "exa-research-fast",
+        "--infer-schema",
+    ])
     assert exit_code == 0
     out = json.loads(capsys.readouterr().out)
     assert out == {"id": "task-1"}
@@ -132,6 +128,24 @@ def test_research_stream(
     assert output[0].startswith("event: running")
     assert output[-1].startswith("event: completed")
     assert dummy_service.calls[-1]["method"] == "research_stream"
+
+
+def test_research_stream_json_events(
+    dummy_service: DummyResearchService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Streaming with --json-events should print JSON event objects."""
+
+    # Teach dummy service to return structured events when requested
+    def _events(*, research_id: str) -> Iterator[dict[str, Any]]:
+        yield {"event": "running", "data": {"progress": 25}}
+        yield {"event": "completed", "data": {"ok": True}}
+
+    dummy_service.research_stream_events = _events  # type: ignore[attr-defined]
+
+    exit_code = cli.main(["research", "stream", "--id", "abc", "--json-events"])
+    assert exit_code == 0
+    lines = [line for line in capsys.readouterr().out.strip().splitlines() if line]
+    assert lines[0].startswith("{") and lines[-1].endswith("}")
 
 
 def test_research_get_with_events(

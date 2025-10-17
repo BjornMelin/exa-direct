@@ -33,15 +33,13 @@ class DummyService:
         livecrawl: str | None,
     ) -> dict[str, Any]:
         """Record contents call and return mock response."""
-        self.calls.append(
-            {
-                "method": "contents",
-                "urls": urls,
-                "text": text,
-                "highlights": highlights,
-                "livecrawl": livecrawl,
-            }
-        )
+        self.calls.append({
+            "method": "contents",
+            "urls": urls,
+            "text": text,
+            "highlights": highlights,
+            "livecrawl": livecrawl,
+        })
         return {"requestId": "abc"}
 
     def find_similar(self, *, url: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -51,9 +49,11 @@ class DummyService:
 
     def answer(self, *, query: str, include_text: bool) -> dict[str, Any]:
         """Record answer call and return mock response."""
-        self.calls.append(
-            {"method": "answer", "query": query, "include_text": include_text}
-        )
+        self.calls.append({
+            "method": "answer",
+            "query": query,
+            "include_text": include_text,
+        })
         return {"answer": "Paris", "citations": []}
 
 
@@ -70,17 +70,15 @@ def test_search_invokes_service(
     dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test that search command calls service correctly."""
-    exit_code = cli.main(
-        [
-            "search",
-            "--query",
-            "latest LLM research",
-            "--type",
-            "fast",
-            "--num-results",
-            "5",
-        ]
-    )
+    exit_code = cli.main([
+        "search",
+        "--query",
+        "latest LLM research",
+        "--type",
+        "fast",
+        "--num-results",
+        "5",
+    ])
     assert exit_code == 0
     captured = json.loads(capsys.readouterr().out)
     assert captured == {"results": []}
@@ -98,20 +96,18 @@ def test_contents_invokes_service(
 ) -> None:
     """Test that contents command calls service correctly."""
     output_path = tmp_path / "result.json"
-    exit_code = cli.main(
-        [
-            "--pretty",
-            "--save",
-            str(output_path),
-            "contents",
-            "https://example.com",
-            "https://another.example",
-            "--text",
-            "--highlights",
-            "--livecrawl",
-            "preferred",
-        ]
-    )
+    exit_code = cli.main([
+        "--pretty",
+        "--save",
+        str(output_path),
+        "contents",
+        "https://example.com",
+        "https://another.example",
+        "--text",
+        "--highlights",
+        "--livecrawl",
+        "preferred",
+    ])
     assert exit_code == 0
     stdout = capsys.readouterr().out
     assert json.loads(stdout) == {"requestId": "abc"}
@@ -131,16 +127,14 @@ def test_find_similar_invokes_service(
     dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test that find-similar command calls service correctly."""
-    exit_code = cli.main(
-        [
-            "find-similar",
-            "--url",
-            "https://example.com",
-            "--num-results",
-            "2",
-            "--exclude-source-domain",
-        ]
-    )
+    exit_code = cli.main([
+        "find-similar",
+        "--url",
+        "https://example.com",
+        "--num-results",
+        "2",
+        "--exclude-source-domain",
+    ])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"results": ["example"]}
     assert dummy_service.calls == [
@@ -156,14 +150,12 @@ def test_answer_invokes_service(
     dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test that answer command calls service correctly."""
-    exit_code = cli.main(
-        [
-            "answer",
-            "--query",
-            "What is the capital of France?",
-            "--include-text",
-        ]
-    )
+    exit_code = cli.main([
+        "answer",
+        "--query",
+        "What is the capital of France?",
+        "--include-text",
+    ])
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {"answer": "Paris", "citations": []}
     assert dummy_service.calls == [
