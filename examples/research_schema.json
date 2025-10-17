@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Timeline Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeline"
+  ],
+  "properties": {
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decade",
+          "notableEvents"
+        ],
+        "properties": {
+          "decade": {
+            "type": "string",
+            "description": "Decade label, e.g. '1850s'"
+          },
+          "notableEvents": {
+            "type": "string",
+            "description": "A concise summary of notable events."
+          }
+        }
+      }
+    }
+  }
+}

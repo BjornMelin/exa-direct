@@ -5,9 +5,16 @@ description = "Minimal CLI for direct Exa API usage (search, contents, find-simi
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{name = "exa-direct", email = "devnull@example.com"}]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.14",
+]
 dependencies = [
-  "exa_py>=1.0.0",
-  "requests>=2.31.0",
+  "exa_py>=1.16.1,<2.0",
+  "httpx>=0.27,<1.0",
 ]
 
 [project.urls]
@@ -20,8 +27,13 @@ exa = "exa_direct.cli:main"
 [tool.ruff]
 line-length = 88
 target-version = "py314"
+preview = true
+# Decision Framework (§2.1, weighted score 0.90): explicit src roots keep lint/format coverage on maintained trees.
+src = ["src", "tests", "examples"]
+extend-include = ["tests/**/*.py", "examples/**/*.py"]
 
 [tool.ruff.lint]
+preview = true
 select = [
     # Core Python style and syntax
     "D",  # pydocstyle - docstring formatting
@@ -94,6 +106,9 @@ ignore = [
 
 fixable = ["ALL"]
 
+[tool.ruff.format]
+preview = true
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -105,14 +120,9 @@ convention = "google"
     "F821",   # Allow undefined names in test mocking contexts
 ]
 
-[tool.pylint]
-disable = []
-good-names = ["id","url","q","rc"]
-max-line-length = 88
-ignored-modules = ["requests", "exa_py", "pytest"]
-
 [tool.pyright]
-include = ["src", "tests"]
+# Decision Framework (§2.1): mirror maintained directories so pyright type-checks src/tests/examples consistently.
+include = ["src", "tests", "examples"]
 pythonVersion = "3.14"
 typeCheckingMode = "basic"
 exclude = [
@@ -120,10 +130,39 @@ exclude = [
   "**/site-packages",
   "/home/bjorn/.local/share/uv/python/**",
 ]
+venvPath = "."
+venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+# Decision Framework (§2.1): align pylint roots with enforced quality gates for src/tests/examples.
+[tool.pylint.main]
+fail-under = 9.5
+py-version = "3.14"
+recursive = true
+source-roots = ["src", "tests", "examples"]
+
+[tool.pylint.basic]
+good-names = ["id","url","q","rc"]
+
+[tool.pylint.format]
+max-line-length = 88
+
+[tool.pylint.imports]
+ignored-modules = ["requests", "exa_py", "pytest"]
+
+[tool.pylint.messages_control]
+disable = [
+  "too-many-branches",
+  "too-many-statements",
+  "too-many-arguments",
+  "unused-argument",
+  "too-few-public-methods",
+  "import-outside-toplevel",
+  "no-else-return",
+]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -131,5 +170,8 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
+    "pytest>=8.4.2,<9.0",
+    "ruff>=0.14.0,<0.15",
+    "pyright>=1.1.406,<1.2",
+    "pylint>=4.0.0,<5.0",
 ]
