@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [{name = "exa-direct", email = "devnull@example.com"}]
 dependencies = [
-  "exa_py>=1.16,<2.0",
+  "exa_py>=1.16.1,<2.0",
   "requests>=2.32,<3.0",
 ]
 
