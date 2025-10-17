@@ -5,7 +5,8 @@
 
 A focused CLI for direct Exa API usage (no MCP). It covers Search, Contents, Find Similar, Answer, Research
 (Create/Get/List + Poll + SSE), and Context (Exa Code). It prints JSON by default, supports `--pretty`
-and `--save`, and includes cURL helpers.
+and `--save`, and includes cURL helpers. LLM‑agnostic: integrate with OpenAI Agents SDK/Codex CLI or
+Claude “tool use” (and LangGraph/LangChain) by invoking CLI commands and consuming JSON—no MCP server required.
 
 ## Features
 
@@ -13,6 +14,8 @@ and `--save`, and includes cURL helpers.
 - Research streaming via SSE and polling presets per model.
 - Context (Exa Code) for code-focused results.
 - Minimal dependencies: `exa_py`, `requests`.
+- LLM‑agnostic: usable from OpenAI Agents SDK/Codex CLI, Claude “tool use”, LangGraph/LangChain by
+  shelling out to this CLI and parsing JSON.
 
 ## Install
 
@@ -30,10 +33,10 @@ export EXA_API_KEY=sk-...
 
 ## Usage
 
-- Fast search with text:
+- Fast search:
 
 ```bash
-exa search --query "Latest research in LLMs" --type fast --text --pretty
+exa search --query "Latest research in LLMs" --type fast --pretty
 ```
 
 - Research (create + poll):
@@ -49,11 +52,64 @@ exa research poll --id <researchId> --model exa-research
 exa research stream --id <researchId>
 ```
 
+- Research (stream JSON events):
+
+```bash
+exa research stream --id <researchId> --json-events | jq '. | {event, data}'
+```
+
 - Context:
 
 ```bash
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
+
+### Use with LLM Agents (no MCP)
+
+- Trigger mode: call the CLI as a tool/command from your agent runtime, parse JSON from stdout, and optionally write
+  large outputs via `--save`.
+- Research guidance: prefer `exa research stream` for live progress or `exa research poll` with model‑aware intervals
+  (fast=10s, balanced=30s, pro=40s). Set `--timeout` to bound runtime.
+- Keys: set `EXA_API_KEY` in the agent/container environment or pass `--api-key` per invocation.
+- Safety & ops: validate/sanitize user input passed to the shell; restrict flags and apply timeouts; capture stderr
+  for HTTP errors; consider retry with backoff on transient failures.
+- Streaming: SSE prints only event‑stream lines; if your framework cannot stream, switch to polling and print the
+  final JSON on completion. Or use `--json-events` to emit one JSON object per event.
+
+## Research 2.0 Quickstart
+
+1) Create a task with schema (structured output):
+
+    ```bash
+    exa research start \
+      --instructions @examples/research_instructions.md \
+      --schema @examples/research_schema.json \
+      --model exa-research
+    ```
+
+2) Poll until completion (preset interval based on model):
+
+    ```bash
+    exa research poll --id <researchId> --model exa-research --timeout 900 --pretty
+    ```
+
+3) Or stream events as JSON:
+
+    ```bash
+    exa research stream --id <researchId> --json-events | jq .
+    ```
+
+4) Retrieve events afterward:
+
+    ```bash
+    exa research get --id <researchId> --events --pretty
+    ```
+
+### Notes
+
+- Models: `exa-research-fast` (quick), `exa-research` (balanced), `exa-research-pro` (deep).
+- Prefer small, shallow JSON Schemas; add field descriptions for clarity.
+- Back off on 429/5xx (the CLI/service handle basic retries).
 
 ## Documentation
 
