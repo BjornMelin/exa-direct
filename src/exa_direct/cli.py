@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-import requests
 
 from . import client
 from .printing import print_json, save_json
@@ -55,11 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _register_search(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `search` command.
-
-    Args:
-        subparsers: Parent subparsers action to add the search command to.
-    """
+    """Register the `search` command."""
     search_parser = subparsers.add_parser("search", help="Search the web with Exa")
 
     # Required arguments
@@ -143,11 +138,7 @@ def _register_search(
 def _register_contents(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `contents` command.
-
-    Args:
-        subparsers: Parent subparsers action to add the contents command to.
-    """
+    """Register the `contents` command."""
     contents_parser = subparsers.add_parser(
         "contents", help="Fetch page contents by URL"
     )
@@ -160,21 +151,13 @@ def _register_contents(
 def _register_find_similar(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `find-similar` command.
-
-    Args:
-        subparsers: Parent subparsers action to add the find-similar command to.
-    """
+    """Register the `find-similar` command."""
     similar_parser = subparsers.add_parser(
         "find-similar", help="Find pages similar to the provided URL"
     )
 
     # Required arguments
-    similar_parser.add_argument(
-        "--url",
-        required=True,
-        help="Source URL",
-    )
+    similar_parser.add_argument("--url", required=True, help="Source URL")
 
     # Result configuration
     similar_parser.add_argument(
@@ -204,11 +187,7 @@ def _register_find_similar(
 def _register_answer(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `answer` command.
-
-    Args:
-        subparsers: Parent subparsers action to add the answer command to.
-    """
+    """Register the `answer` command."""
     answer_parser = subparsers.add_parser("answer", help="Ask Exa to answer a question")
 
     # Required arguments
@@ -242,11 +221,7 @@ def _register_answer(
 def _register_research(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `research` command group.
-
-    Args:
-        subparsers: Parent subparsers action to add the research command to.
-    """
+    """Register the `research` command group."""
     research = subparsers.add_parser("research", help="Research task operations")
     rsubs = research.add_subparsers(dest="research_cmd", required=True)
 
@@ -263,7 +238,6 @@ def _register_research(
     start.add_argument(
         "--schema", help="Path to JSON Schema file for structured output"
     )
-    # Removed --infer-schema: not supported by SDK; simplifies UX
 
     # Get research task
     getp = rsubs.add_parser("get", help="Get a research task")
@@ -292,11 +266,7 @@ def _register_research(
 def _register_context(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
-    """Register the `context` command group.
-
-    Args:
-        subparsers: Parent subparsers action to add the context command to.
-    """
+    """Register the `context` command group."""
     ctx = subparsers.add_parser("context", help="Exa Code context API")
     csubs = ctx.add_subparsers(dest="context_cmd", required=True)
 
@@ -333,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
     # Execute command and handle results
     try:
         result = _dispatch(service, args)
-    except (requests.HTTPError, httpx.HTTPStatusError) as error:
+    except httpx.HTTPStatusError as error:
         response = getattr(error, "response", None)
         if response is not None:
             code = getattr(response, "status_code", "?")
@@ -342,13 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             sys.stderr.write("HTTP error\n")
         return 1
-    except (
-        ValueError,
-        RuntimeError,
-        OSError,
-        requests.RequestException,
-        httpx.RequestError,
-    ) as exc:
+    except (ValueError, RuntimeError, OSError, httpx.RequestError) as exc:
         sys.stderr.write(f"Error: {exc}\n")
         return 1
 
@@ -432,16 +396,23 @@ def _handle_answer(
     service: client.ExaService, args: argparse.Namespace
 ) -> dict[str, Any] | None:
     """Execute the answer command."""
+    # Check if streaming output is requested
     if getattr(args, "stream", False):
         opts = _build_answer_options(args)
+
+        # Stream JSON lines if requested
         if getattr(args, "json_lines", False):
             for event in service.answer_stream_json(query=args.query, **opts):
                 print(json.dumps(event, ensure_ascii=False))
             return None
+
+        # Stream regular text output chunk-by-chunk
         for chunk in service.answer_stream(query=args.query, **opts):
             sys.stdout.write(str(chunk))
         sys.stdout.write("\n")
         return None
+
+    # Standard synchronous answer
     return service.answer(query=args.query, **_build_answer_options(args))
 
 
