@@ -58,7 +58,6 @@ exa research stream --id <researchId> | jq .
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
 
-
 ### Examples
 
 See runnable scripts under `examples/`:
@@ -120,6 +119,13 @@ See runnable scripts under `examples/`:
 ## Documentation
 
 See the [docs index](docs/index.md) for user and developer guides and ADRs.
+
+### Examples
+
+- Python agent helpers: `examples/agents_python.py`
+- Pipeline (search → contents → answer): `examples/pipeline_search_contents_answer.py`
+- Research streaming (JSON-lines): `examples/research_stream_json.py`
+- Context for RAG prompts: `examples/context_rag_snippet.py`
 
 ## Development
 
@@ -242,10 +248,12 @@ export async function exaResearch(
 // console.log(res);
 ```
 
-Notes
+### Notes
+
 - Escape or validate any user-provided strings passed to the shell.
 - For large outputs, add `--save /path/out.json` and read the file from your agent.
 - For real-time UX, prefer `exa research stream` where your framework supports streaming; otherwise poll.
+
 ### Inline contents with search
 
 ```bash
