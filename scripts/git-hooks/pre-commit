@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-commit: format and lint Python + Markdown
+# - Runs ruff format + ruff check --fix
+# - Runs markdownlint (auto-fix if available via markdownlint-cli)
+# - Re-stages changes
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+has() { command -v "$1" >/dev/null 2>&1; }
+
+# Python formatting/linting with ruff
+if has ruff; then
+  echo "[pre-commit] ruff format …"
+  ruff format .
+  echo "[pre-commit] ruff check --fix …"
+  ruff check . --fix
+elif has uv; then
+  echo "[pre-commit] uv run ruff format …"
+  uv run ruff format .
+  echo "[pre-commit] uv run ruff check --fix …"
+  uv run ruff check . --fix
+else
+  echo "[pre-commit] ruff not found; skipping Python format/lint" >&2
+fi
+
+# Markdown linting/auto-fix
+MD_GLOBS=("**/*.md" "!**/.venv/**" "!**/node_modules/**")
+if has markdownlint; then
+  echo "[pre-commit] markdownlint --fix …"
+  markdownlint --fix --config .markdownlint.yaml "${MD_GLOBS[@]}" || true
+elif has npx; then
+  if npx --yes markdownlint-cli --version >/dev/null 2>&1; then
+    echo "[pre-commit] npx markdownlint-cli --fix …"
+    npx --yes markdownlint-cli --fix "${MD_GLOBS[@]}" || true
+  else
+    echo "[pre-commit] markdownlint CLI not available; skipping fix" >&2
+  fi
+else
+  echo "[pre-commit] markdownlint not found; skipping" >&2
+fi
+
+# Re-stage any changes made by formatters
+git add -A
+
+# Optionally, abort commit if ruff still reports errors
+if has ruff; then
+  echo "[pre-commit] final ruff check …"
+  ruff check .
+elif has uv; then
+  echo "[pre-commit] final uv run ruff check …"
+  uv run ruff check .
+fi
+
+exit 0
