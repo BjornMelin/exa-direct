@@ -20,7 +20,8 @@
 
 ## Maintenance Checks
 
-- When Exa publishes Research REST updates, verify that the CLI's research streaming path still matches the official endpoints documented under Research below.
+- When Exa publishes Research REST updates, verify that the CLI's research streaming path still
+  matches the official endpoints documented under Research below.
 
 ## Error Handling
 
