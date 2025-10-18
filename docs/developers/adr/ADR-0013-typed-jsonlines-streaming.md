@@ -28,4 +28,3 @@ Use SDK typed streaming and emit one JSON object per line. Remove raw SSE mode.
 ## Alternatives Considered
 
 - Raw SSE with local parser: more brittle; discarded.
-

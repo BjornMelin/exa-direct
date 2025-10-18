@@ -189,3 +189,6 @@ Thumbs.db
 
 # Pylint
 .pylint.d/
+
+# Project specific
+agent-logs/
