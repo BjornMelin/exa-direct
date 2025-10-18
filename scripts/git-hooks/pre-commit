@@ -27,19 +27,28 @@ else
 fi
 
 # Markdown linting/auto-fix
-MD_GLOBS=("**/*.md" "!**/.venv/**" "!**/node_modules/**")
-if has markdownlint; then
-  echo "[pre-commit] markdownlint --fix …"
-  markdownlint --fix --config .markdownlint.yaml "${MD_GLOBS[@]}" || true
-elif has npx; then
-  if npx --yes markdownlint-cli --version >/dev/null 2>&1; then
-    echo "[pre-commit] npx markdownlint-cli --fix …"
-    npx --yes markdownlint-cli --fix "${MD_GLOBS[@]}" || true
+mapfile -d '' -t MD_FILES < <(
+  find . -type f -name '*.md' \
+    ! -path '*/.venv/*' \
+    ! -path '*/node_modules/*' -print0
+)
+
+if (( ${#MD_FILES[@]} )); then
+  if has markdownlint; then
+    echo "[pre-commit] markdownlint --fix …"
+    markdownlint --fix --config .markdownlint.yaml "${MD_FILES[@]}" || true
+  elif has npx; then
+    if npx --yes markdownlint-cli --version >/dev/null 2>&1; then
+      echo "[pre-commit] npx markdownlint-cli --fix …"
+      npx --yes markdownlint-cli --fix "${MD_FILES[@]}" || true
+    else
+      echo "[pre-commit] markdownlint CLI not available; skipping fix" >&2
+    fi
   else
-    echo "[pre-commit] markdownlint CLI not available; skipping fix" >&2
+    echo "[pre-commit] markdownlint not found; skipping" >&2
   fi
 else
-  echo "[pre-commit] markdownlint not found; skipping" >&2
+  echo "[pre-commit] no Markdown files detected; skipping markdownlint" >&2
 fi
 
 # Re-stage any changes made by formatters
