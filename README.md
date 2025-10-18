@@ -8,7 +8,61 @@
 A focused CLI for direct Exa API usage (no MCP). It covers Search, Contents, Find Similar, Answer, Research
 (Create/Get/List + Poll + Stream), and Context (Exa Code). It prints JSON by default, supports `--pretty`
 and `--save`, and includes cURL helpers. LLM‑agnostic: integrate with OpenAI Agents SDK/Codex CLI or
-Claude “tool use” (and LangGraph/LangChain) by invoking CLI commands and consuming JSON—no MCP server required.
+Claude “tool use” (and LangGraph/LangChain) by invoking CLI commands and consuming JSON, no MCP server required.
+
+It bootstraps quickly with `uv` (create a venv + `uv pip install -e .`), ships with research
+polling/streaming helpers, and keeps options one-to-one with the official SDK so you always know which
+flags Exa understands, and is easy to extend with new endpoints.
+
+## Quick Start
+
+1. **Install `uv` (skip if already installed)**
+   - macOS/Linux:
+
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+
+   - Windows (PowerShell):
+
+     ```powershell
+     irm https://astral.sh/uv/install.ps1 | iex
+     ```
+
+2. **Create a virtual environment and install exa-direct**
+
+   ```bash
+   uv venv
+   source .venv/bin/activate
+   uv pip install -e .
+   ```
+
+3. **Provide your API key**
+
+   ```bash
+   export EXA_API_KEY=sk-...
+   ```
+
+4. **Run your first query**
+
+   ```bash
+   exa search --query "state of AGI" --type fast --pretty
+   ```
+
+Want structured research or code-aware context? Swap the final command for `exa research stream ...` or
+`exa context query ...`—the flags mirror the SDK and every command prints JSON for downstream tooling.
+
+### Why agents call the CLI directly
+
+- **Codex & Claude Code CLI friendly:** Designed for OpenAI Codex CLI and Claude Code CLI sessions to execute
+  commands directly instead of routing through the Exa MCP server.
+- **Lower latency & tighter control:** Avoid MCP indirection to keep roundtrips fast, tighten search/research
+  loops, and stream incremental output straight into your agent workflow.
+- **Full Exa surface:** Unlock extended Exa API capabilities (live crawl policies, schema-driven summaries,
+  context payloads, cURL helpers) that the MCP server cannot reach, plus the `exa-research-fast` model not
+  available via MCP tooling.
+- **Future-ready:** When the SDK adds features, exa-direct gains them immediately because the CLI mirrors the
+  underlying `exa_py` surface one-to-one.
 
 ## Features
 
@@ -21,10 +75,26 @@ Claude “tool use” (and LangGraph/LangChain) by invoking CLI commands and con
 
 ## Install
 
+### 1. Install `uv`
+
+- macOS/Linux:
+
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+
+- Windows (PowerShell):
+
+  ```powershell
+  irm https://astral.sh/uv/install.ps1 | iex
+  ```
+
+### 2. Set up the environment and install dependencies
+
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -U pip
-pip install -e .
+uv venv
+source .venv/bin/activate
+uv pip install -e .
 ```
 
 ## Configure
@@ -148,7 +218,7 @@ uv run pylint --fail-under=9.5 src/exa_direct tests
 uv run python -m pytest -q
 ```
 
-### Git hooks and docs lint
+### Git hooks and CI
 
 - Enable the repo’s pre-commit hook (formats with ruff, lints Markdown, and re-stages fixes):
 
@@ -157,6 +227,7 @@ git config core.hooksPath scripts/git-hooks
 ```
 
 - CI runs markdownlint on PRs via `.github/workflows/markdownlint.yml`.
+- CI runs Ruff format/lint via `.github/workflows/ruff.yml`.
 
 ### cURL Helpers
 
