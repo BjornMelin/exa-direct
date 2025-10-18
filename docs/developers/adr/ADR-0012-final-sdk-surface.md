@@ -5,7 +5,8 @@ Status: Accepted
 
 ## Context
 
-Earlier versions used getattr checks and alternate names (`task_id`, `create_task`) to cope with drift. This increased complexity and risk.
+Earlier versions used getattr checks and alternate names (`task_id`, `create_task`) to cope with drift.
+This increased complexity and risk.
 
 ## Decision
 
@@ -30,4 +31,3 @@ Remove all fallbacks and call only the final SDK surface:
 ## Alternatives Considered
 
 - Keep fallbacks/feature flags: rejected (violates FINAL-ONLY rule, increases drift).
-

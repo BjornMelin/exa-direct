@@ -1,8 +1,25 @@
-# Recipes
+# Integration Recipes
 
-Practical, copy‑paste workflows that combine multiple `exa` commands.
+Concise, copy‑paste workflows for integrating the `exa` CLI into agent and automation pipelines.
+All commands print JSON to stdout; add `--pretty` for readability and `--save path.json` to persist.
 
-## Search → Contents (Highlights) → Answer
+## 1) Agent Shell‑Out Pattern (Python)
+
+```python
+import json, os, subprocess
+
+def run_exa(args: list[str]) -> dict:
+    env = {**os.environ, "EXA_API_KEY": os.environ.get("EXA_API_KEY", "")}
+    out = subprocess.check_output(["exa", *args], env=env, text=True)
+    return json.loads(out)
+
+# Example: fast search
+res = run_exa(["search", "--query", "hybrid vector search", "--type", "fast"]) 
+```
+
+See also: `examples/agents_python.py`.
+
+## 2) Search → Contents (Highlights/Text) → Answer
 
 ```bash
 exa search --query "hybrid vector search" --type fast --pretty --save /tmp/search.json
@@ -14,7 +31,7 @@ exa answer --query "Summarize hybrid vector search" --pretty
 
 See also: `examples/pipeline_search_contents_answer.py`.
 
-## Research (Start → Stream JSON → Final)
+## 3) Research (Start → Stream JSON‑Lines → Final Snapshot)
 
 ```bash
 exa research start \
@@ -28,10 +45,24 @@ exa research get --id "$ID" --events --pretty | jq '.'
 
 See also: `examples/research_stream_json.py`.
 
-## Context (Exa Code) for RAG
+## 4) Polling with UX Presets
+
+```bash
+# Presets: fast=10s, balanced=30s, pro=40s (SDK timings remain defaults)
+exa research poll --id "$ID" --preset balanced --pretty
+```
+
+## 5) Context (Exa Code) for RAG
 
 ```bash
 exa context query --query "pandas groupby examples" --tokensNum 2048 --pretty --save /tmp/context.json
 ```
 
 See also: `examples/context_rag_snippet.py`.
+
+## 6) Process‑Level Timeout (Wrapper)
+
+```bash
+# Linux/macOS example: kill if stream exceeds 15 minutes
+timeout 15m sh -c 'exa research stream --id "$ID" > /tmp/stream.jsonl'
+```

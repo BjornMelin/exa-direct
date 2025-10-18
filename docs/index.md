@@ -7,7 +7,7 @@ Documentation is organized for end users and developers.
 
 - **Quickstart:** [Quickstart](users/quickstart.md)
 - **Commands & Examples:** [Commands & Examples](users/commands.md)
-- **Recipes:** [Recipes](users/recipes.md)
+- **Integration Recipes:** [Integration Recipes](users/recipes.md)
 - **Troubleshooting:** [Troubleshooting](users/troubleshooting.md)
 - **Best Practices:** [Best Practices](users/best_practices.md)
 

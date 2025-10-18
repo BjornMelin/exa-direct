@@ -5,7 +5,8 @@ Status: Accepted
 
 ## Context
 
-The CLI makes a direct HTTP call to the `/context` endpoint (not wrapped by `exa_py`). Historically it used `requests`. The `exa_py` SDK uses `httpx` in async paths. We want consistency, performance, and a single modern client.
+The CLI makes a direct HTTP call to the `/context` endpoint (not wrapped by `exa_py`). Historically it used `requests`.
+The `exa_py` SDK uses `httpx` in async paths. We want consistency, performance, and a single modern client.
 
 ## Decision
 
@@ -29,4 +30,3 @@ Use `httpx.Client` for non-SDK HTTP calls.
 
 - Keep `requests`: acceptable but less aligned; fewer async-friendly options.  
 - aiohttp: heavier; no need for async end-to-end right now.
-

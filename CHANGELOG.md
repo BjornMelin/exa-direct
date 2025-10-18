@@ -5,7 +5,7 @@
 ### Added
 
 - Structured Research SSE parsing in client: `research_stream_events()` returns `{event, data}` objects.
-- CLI `research stream --json-events` to emit one JSON object per SSE event.
+- CLI `research stream` emits one JSON object per event (JSON-lines).
 - CLI `answer --stream` to stream answer chunks via SDK.
 - Context transport improvements:
   - HTTP/2 enabled for the Context HTTP client.
@@ -25,7 +25,7 @@
   - `search` → `search_and_contents`
   - `find-similar` → `find_similar_and_contents`
 - Examples and templates:
-  - `examples/stream_consumer.sh` (pretty-prints `--json-events`)
+  - `examples/stream_consumer.sh` (pretty-prints JSON-lines)
   - `examples/research_instructions.md`, `examples/research_schema.json`
   - `.env.example` with `EXA_API_KEY`
 - Docs (developer-facing): `docs/developers/exa_py_api_reference.md` capturing canonical SDK surfaces.
@@ -52,7 +52,7 @@
 
 - Research endpoint correctness and headers retained for SSE; connection retries on
   initial SSE connect for transient statuses (429/502/503/504).
-- Tests cover SDK-first research get, SSE parsing, CLI `--json-events`, and `answer --stream`.
+- Tests cover SDK-first research get, streaming JSON-lines, and `answer --stream`.
 - Tests updated for SDK-aligned research calls and simplified polling defaults.
 
 ### Removed
