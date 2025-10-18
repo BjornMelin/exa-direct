@@ -36,8 +36,8 @@
 - Research (create/get/list/poll/stream)
   - Trigger: Complex tasks (e.g., “Compare XYZ, return a table”; “Provide a sourced, structured report”).
   - Model selection: `exa-research-fast` (quick iteration), `exa-research` (balanced), `exa-research-pro` (thorough reasoning).
-  - Poll presets: fast=10s, exa-research=30s, pro=40s. Override `--interval` if the user asks for different cadence.
-  - Stream SSE: Use when the user wants progress and partials; prints only event-stream lines to stdout (no trailing JSON).
+  - Poll presets: fast=10s, balanced=30s, pro=40s (UX presets; SDK controls timing).
+  - Stream JSON-lines: Use for progress and partials; prints one JSON object per line to stdout.
 - Context (Exa Code)
   - Trigger: User needs code examples, setup snippets, library usage, or token-efficient coding context.
   - `--tokensNum dynamic` by default. Increase (e.g., 5000–10000) if the agent needs broader context blocks.
@@ -62,7 +62,7 @@
 - Research (Get/Events):
   - `exa research get --id <researchId> --events --pretty`
 - Research (Poll with preset):
-  - `exa research poll --id <researchId> --model exa-research --timeout 900 --pretty`
+  - `exa research poll --id <researchId> --preset balanced --pretty`
 - Research (Stream JSON-lines):
   - `exa research stream --id <researchId>` → emits one JSON object per line (typed SDK events).
 - Research (List):
@@ -138,7 +138,7 @@
 
 - 401/403: ask for `EXA_API_KEY` or use `--api-key` one-time override.
 - Large outputs: add `--save out.json` and tell the user where it was written.
-- SSE in restricted environments: switch to `research poll`.
+- Streaming in restricted environments: switch to `research poll`.
 
 ## Decision Matrix (quick reference)
 
@@ -172,7 +172,7 @@ Use this snippet in your own AGENTS.md to enable GPT‑5‑Codex/GPT‑5 agents 
   - Create → `exa research start --instructions "…" [--model exa-research|exa-research-pro] [--schema @schema.json]`
   - Get → `exa research get --id <id> [--events]`
   - List → `exa research list [--limit N] [--cursor CUR]`
-  - Poll → `exa research poll --id <id> [--model exa-research[-fast|-pro]] [--interval SECS] [--timeout 900]`
+  - Poll → `exa research poll --id <id> [--preset fast|balanced|pro]`
 - Stream → `exa research stream --id <id>` (always JSON-lines)
 - Code context → `exa context query --query "…" --tokensNum dynamic`
 
@@ -189,11 +189,14 @@ Use this snippet in your own AGENTS.md to enable GPT‑5‑Codex/GPT‑5 agents 
 
 ## References (read when needed)
 
-- API overview: https://exa.ai/blog/exa-api-2-0
-- Search: https://docs.exa.ai/reference/search
-- Contents: https://docs.exa.ai/reference/get-contents
-- Find Similar: https://docs.exa.ai/reference/find-similar-links
-- Answer: https://docs.exa.ai/reference/answer
-- Research (create/get/list): https://docs.exa.ai/reference/research/create-a-task, https://docs.exa.ai/reference/research/get-a-task, https://docs.exa.ai/reference/research/list-tasks
-- Context (Exa Code): https://docs.exa.ai/reference/context
-- Livecrawling: https://docs.exa.ai/reference/livecrawling-contents
+- API overview: <https://exa.ai/blog/exa-api-2-0>
+- Search: <https://docs.exa.ai/reference/search>
+- Contents: <https://docs.exa.ai/reference/get-contents>
+- Find Similar: <https://docs.exa.ai/reference/find-similar-links>
+- Answer: <https://docs.exa.ai/reference/answer>
+- Research (create/get/list):
+  - <https://docs.exa.ai/reference/research/create-a-task>
+  - <https://docs.exa.ai/reference/research/get-a-task>
+  - <https://docs.exa.ai/reference/research/list-tasks>
+- Context (Exa Code): <https://docs.exa.ai/reference/context>
+- Livecrawling: <https://docs.exa.ai/reference/livecrawling-contents>
