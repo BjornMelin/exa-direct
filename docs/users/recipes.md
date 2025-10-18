@@ -48,7 +48,7 @@ See also: `examples/research_stream_json.py`.
 ## 4) Polling with UX Presets
 
 ```bash
-# Presets: fast=10s, balanced=30s, pro=40s (SDK timings remain defaults)
+# CLI preset hints: fast=10s, balanced=30s, pro=40s; the SDK retains its own default intervals unless you override them.
 exa research poll --id "$ID" --preset balanced --pretty
 ```
 

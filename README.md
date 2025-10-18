@@ -120,8 +120,8 @@ exa contents https://example.com --text --highlights --summary-query "overview" 
 **Fresh content for agents:**
 
 - Use `preferred` for production-safe freshness with fallbacks, or `always` when you need current data.
-- Add `--summary-query` for AI-generated summaries, `--subpages` to crawl linked pages,
-  `--extras-links` for additional URLs, and `--extras-image-links` for image URLs.
+- Add `--summary-query` for AI-generated summaries and `--subpages` to crawl linked pages.
+- Use `--extras-links` for additional URLs and `--extras-image-links` for image URLs.
 - Set `--livecrawl-timeout` to control crawl speed.
 
 ### Research Synthesis

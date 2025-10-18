@@ -27,9 +27,9 @@ Field‑tested guidance for using the Exa API via the `exa` CLI.
 
 ## Research Models & Polling
 
-- Presets: fast=10s, balanced=30s, pro=40s (UX guidance).
-- Prefer `exa research stream` for real‑time updates.
-- `exa research poll` uses SDK defaults; add wrapper timeouts if needed.
+- Presets: fast=10s, balanced=30s, pro=40s (CLI UX guidance).
+- Prefer `exa research stream` for real-time updates.
+- `exa research poll` uses SDK defaults; set `--interval` or wrapper timeouts when you need the CLI presets.
 
 ## Context (Exa Code)
 

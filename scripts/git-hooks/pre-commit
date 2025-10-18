@@ -27,6 +27,7 @@ else
 fi
 
 # Markdown linting/auto-fix
+# Use find to avoid shell-specific glob semantics and handle nested paths.
 mapfile -d '' -t MD_FILES < <(
   find . -type f -name '*.md' \
     ! -path '*/.venv/*' \
