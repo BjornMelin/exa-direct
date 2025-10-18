@@ -1,27 +1,37 @@
 # Best Practices
 
-Field‑tested guidance for using the Exa API via the `exa` CLI. See also `docs/user/best_practices.md`.
+Field‑tested guidance for using the Exa API via the `exa` CLI.
 
 ## Search Types
 
-- auto (balanced), fast (latency), neural (semantic), keyword (exact).
+- auto (balanced)
+- fast (latency‑optimized)
+- neural (semantic)
+- keyword (exact)
 
 ## Contents Retrieval
 
-- Use `--highlights` to triage; add `--text` only when full content is required.
+- Use `--highlights` to triage.
+- Add `--text` only when full content is required.
 
 ## Livecrawling
 
-- `preferred` default; `always` for strict freshness; `fallback/never` for speed/static.
+- `preferred` by default.
+- `always` for strict freshness.
+- `fallback`/`never` for speed or static content.
 
-## Answer vs Research
+## Answer vs. Research
 
-- `answer` for synchronous Q&A; `research` for structured, multi‑step tasks with schema.
+- `answer` for synchronous Q&A with citations.
+- `research` for structured, multi‑step tasks using a schema.
 
 ## Research Models & Polling
 
-- fast=10s, exa‑research=30s, pro=40s (override via `--interval`). Prefer `stream` for real‑time.
+- Presets: fast=10s, balanced=30s, pro=40s (UX guidance).
+- Prefer `exa research stream` for real‑time updates.
+- `exa research poll` uses SDK defaults; add wrapper timeouts if needed.
 
 ## Context (Exa Code)
 
-- Start with `--tokensNum dynamic`; raise when broader snippet windows are needed.
+- Start with `--tokensNum dynamic`.
+- Increase tokens when broader snippet windows are required.
