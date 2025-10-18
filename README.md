@@ -1,17 +1,19 @@
 # exa-direct
 
+[![CI](https://img.shields.io/github/actions/workflow/status/BjornMelin/exa-direct/ci.yml?branch=main&label=CI)](https://github.com/BjornMelin/exa-direct/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-index-blue)](./docs/index.md)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/)
 [![API](https://img.shields.io/badge/API-Exa-blueviolet)](https://docs.exa.ai/reference/getting-started)
 
 A focused CLI for direct Exa API usage (no MCP). It covers Search, Contents, Find Similar, Answer, Research
-(Create/Get/List + Poll + SSE), and Context (Exa Code). It prints JSON by default, supports `--pretty`
+(Create/Get/List + Poll + Stream), and Context (Exa Code). It prints JSON by default, supports `--pretty`
 and `--save`, and includes cURL helpers. LLM‑agnostic: integrate with OpenAI Agents SDK/Codex CLI or
 Claude “tool use” (and LangGraph/LangChain) by invoking CLI commands and consuming JSON—no MCP server required.
 
 ## Features
 
 - JSON to stdout; `--pretty` to format; `--save` to write files.
-- Research streaming via SSE and polling presets per model.
+- Research streaming via JSON-lines and polling presets per model.
 - Context (Exa Code) for code-focused results.
 - Minimal dependencies: `exa_py`, `requests`.
 - LLM‑agnostic: usable from OpenAI Agents SDK/Codex CLI, Claude “tool use”, LangGraph/LangChain by
@@ -80,7 +82,6 @@ See runnable scripts under `examples/`:
 - Trigger mode: call the CLI as a tool/command from your agent runtime, parse JSON from stdout, and optionally write
   large outputs via `--save`.
 - Research guidance: prefer `exa research stream` for live progress or `exa research poll` with model‑aware intervals
-  (fast=10s, balanced=30s, pro=40s). Set `--timeout` to bound runtime.
 - Keys: set `EXA_API_KEY` in the agent/container environment or pass `--api-key` per invocation.
 - Safety & ops: validate/sanitize user input passed to the shell; restrict flags and apply timeouts; capture stderr
   for HTTP errors; consider retry with backoff on transient failures.
@@ -101,13 +102,13 @@ See runnable scripts under `examples/`:
 2) Poll until completion (preset interval based on model):
 
     ```bash
-    exa research poll --id <researchId> --model exa-research --timeout 900 --pretty
+    exa research poll --id <researchId> --preset balanced --pretty
     ```
 
-3) Or stream events as JSON:
+3) Or stream events as JSON-lines:
 
     ```bash
-    exa research stream --id <researchId> --json-events | jq .
+    exa research stream --id <researchId> | jq .
     ```
 
 4) Retrieve events afterward:
@@ -147,6 +148,16 @@ uv run pylint --fail-under=9.5 src/exa_direct tests
 uv run python -m pytest -q
 ```
 
+### Git hooks and docs lint
+
+- Enable the repo’s pre-commit hook (formats with ruff, lints Markdown, and re-stages fixes):
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+- CI runs markdownlint on PRs via `.github/workflows/markdownlint.yml`.
+
 ### cURL Helpers
 
 - `scripts/exa.sh` provides functions:
@@ -157,17 +168,24 @@ uv run python -m pytest -q
   - `exa_context`: Context (Exa Code).
   - `exa_research_start`: Research (create + poll).
   - `exa_research_get`: Research (get).
-  - `exa_research_stream`: Research (stream SSE).
+  - `exa_research_stream`: Research (stream JSON-lines).
   - `exa_research_list`: Research (list).
 
 ### References
 
 - **Exa overview:** <https://exa.ai/blog/exa-api-2-0>
-- **Endpoints:** <https://docs.exa.ai/reference/search>, <https://docs.exa.ai/reference/get-contents>,
-  <https://docs.exa.ai/reference/find-similar-links>, <https://docs.exa.ai/reference/answer>,
-  <https://docs.exa.ai/reference/research/create-a-task>, <https://docs.exa.ai/reference/research/get-a-task>,
-  <https://docs.exa.ai/reference/research/list-tasks>, <https://docs.exa.ai/reference/context>,
-  <https://docs.exa.ai/reference/how-exa-search-works>, <https://docs.exa.ai/reference/livecrawling-contents>
+- **Endpoints:**
+  - **Search:** <https://docs.exa.ai/reference/search>
+  - **Contents:** <https://docs.exa.ai/reference/get-contents>
+  - **Find Similar:** <https://docs.exa.ai/reference/find-similar-links>
+  - **Answer:** <https://docs.exa.ai/reference/answer>
+  - **Research:**
+    - **Create:** <https://docs.exa.ai/reference/research/create-a-task>
+    - **Get:** <https://docs.exa.ai/reference/research/get-a-task>
+    - **List:** <https://docs.exa.ai/reference/research/list-tasks>
+  - **Context:** <https://docs.exa.ai/reference/context>
+  - **How Exa Search Works:** <https://docs.exa.ai/reference/how-exa-search-works>
+  - **Livecrawling Contents:** <https://docs.exa.ai/reference/livecrawling-contents>
 
 ## Agents SDK examples (Python/JS)
 
@@ -212,48 +230,6 @@ def exa_research(query_path: str, schema_path: str, model: str = "exa-research")
 if __name__ == "__main__":
     os.environ.setdefault("EXA_API_KEY", "sk-...set-me...")
     print(exa_search("hybrid search vector databases"))
-```
-
-Node.js / TypeScript (child_process)
-
-```ts
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const pexecFile = promisify(execFile);
-
-async function runExa(args: string[]) {
-  const { stdout } = await pexecFile("exa", args, {
-    env: { ...process.env, EXA_API_KEY: process.env.EXA_API_KEY ?? "" },
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  return JSON.parse(stdout);
-}
-
-export async function exaSearch(query: string, type = "fast") {
-  return runExa(["search", "--query", query, "--type", type]);
-}
-
-export async function exaResearch(
-  instructionsPath: string,
-  schemaPath: string,
-  model = "exa-research"
-) {
-  const start = await runExa([
-    "research", "start",
-    "--instructions", `@${instructionsPath}`,
-    "--schema", `@${schemaPath}`,
-    "--model", model,
-  ]);
-  const id = (start as any).id ?? (start as any).taskId;
-  if (!id) throw new Error(`No task id in ${JSON.stringify(start)}`);
-  return runExa(["research", "poll", "--id", id, "--model", model, "--timeout", "900"]);
-}
-
-// Example usage
-// process.env.EXA_API_KEY = "sk-...";
-// const res = await exaSearch("hybrid search vector databases");
-// console.log(res);
 ```
 
 ### Notes
