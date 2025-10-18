@@ -3,7 +3,7 @@ name: markdownlint
 on:
   pull_request:
   push:
-    branches: [ main, master ]
+    branches: [main]
 
 jobs:
   markdownlint:
@@ -14,7 +14,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - name: Install markdownlint-cli
         run: |
           npm install --global markdownlint-cli@0.39.0
