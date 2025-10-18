@@ -18,6 +18,10 @@
 - CLI parses flags → constructs parameters → calls `ExaService` methods → prints JSON (and saves if requested).
 - For Research stream: CLI emits JSON-lines using SDK typed events; polling uses SDK helper defaults.
 
+## Maintenance Checks
+
+- When Exa publishes Research REST updates, verify that the CLI's research streaming path still matches the official endpoints documented under Research below.
+
 ## Error Handling
 
 - HTTP: status code and body emitted to stderr; exit code 1.
