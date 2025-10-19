@@ -27,6 +27,13 @@ Documentation is organized for end users and developers.
   - **ADR-0008:** [ADR-0008](developers/adr/ADR-0008.md)
   - **ADR-0009:** [ADR-0009](developers/adr/ADR-0009.md)
   - **ADR-0010:** [ADR-0010](developers/adr/ADR-0010.md)
+  - **ADR-0011:** [ADR-0011](developers/adr/ADR-0011-http-client.md)
+  - **ADR-0012:** [ADR-0012](developers/adr/ADR-0012-final-sdk-surface.md)
+  - **ADR-0013:** [ADR-0013](developers/adr/ADR-0013-typed-jsonlines-streaming.md)
+  - **ADR-0014:** [ADR-0014](developers/adr/ADR-0014-contents-vs-crawl-scrape.md)
+  - **ADR-0015:** [ADR-0015](developers/adr/ADR-0015-agents-architecture.md)
+  - **ADR-0016:** [ADR-0016](developers/adr/ADR-0016-agent-framework-selection.md)
+  - **ADR-0017:** [ADR-0017](developers/adr/ADR-0017-agent-output-contract.md)
 
 ## Product Requirements
 
