@@ -46,6 +46,7 @@ class ExaService:
         self._exa = Exa(api_key)
         # persistent HTTP client for non-SDK endpoints (Context). Enable HTTP/2
         # with a total timeout.
+        self._http_provided = http is not None
         self._http = http or httpx.Client(
             http2=True, timeout=60.0, headers={"x-api-key": api_key}
         )
@@ -91,6 +92,9 @@ class ExaService:
         context: bool | Mapping[str, Any] | None = None,
         livecrawl: str | None = None,
         livecrawl_timeout: int | None = None,
+        metadata: bool | Mapping[str, Any] | None = None,
+        filter_empty_results: bool | None = None,
+        flags: Iterable[str] | None = None,
     ) -> dict[str, Any]:
         """Fetch page contents using the SDK with rich options."""
         payload: MutableMapping[str, Any] = {"urls": list(urls)}
@@ -112,6 +116,12 @@ class ExaService:
             payload["livecrawl"] = livecrawl
         if livecrawl_timeout is not None:
             payload["livecrawl_timeout"] = livecrawl_timeout
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if filter_empty_results is not None:
+            payload["filter_empty_results"] = filter_empty_results
+        if flags:
+            payload["flags"] = list(flags)
 
         response = self._exa.get_contents(**payload)
         return _to_dict(response)
@@ -344,6 +354,20 @@ class ExaService:
         resp = self._http.post(url, json=payload)
         resp.raise_for_status()
         return resp.json()
+
+    def close(self) -> None:
+        """Close the internally managed HTTP client."""
+        if not self._http_provided:
+            self._http.close()
+
+    def __enter__(self) -> ExaService:
+        """Return self for context manager usage."""
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        """Ensure resources are cleaned up when exiting context."""
+        del exc_type, exc, tb
+        self.close()
 
 
 def resolve_api_key(explicit: str | None) -> str:

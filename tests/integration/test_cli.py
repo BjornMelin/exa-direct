@@ -178,6 +178,29 @@ def test_contents_invokes_service(
     assert dummy_service.calls[0]["options"]["livecrawl"] == "preferred"
 
 
+def test_contents_with_metadata_and_flags(
+    dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Contents command should forward metadata/filters/flags."""
+    exit_code = cli.main([
+        "contents",
+        "https://example.com",
+        "--metadata",
+        "--filter-empty-results",
+        "--contents-flags",
+        "beta",
+        "preview",
+    ])
+
+    assert exit_code == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result == {"requestId": "abc"}
+    opts = dummy_service.calls[0]["options"]
+    assert opts["metadata"] is True
+    assert opts["filter_empty_results"] is True
+    assert opts["flags"] == ["beta", "preview"]
+
+
 def test_search_with_text_uses_search_and_contents(
     dummy_service: DummyService, capsys: pytest.CaptureFixture[str]
 ) -> None:

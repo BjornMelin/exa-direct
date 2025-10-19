@@ -27,6 +27,9 @@ exa contents https://example.com --text --livecrawl preferred
 Options:
 
 - `--text`, `--highlights`
+- `--summary-query`, `--summary-schema`, `--metadata`, `--metadata-json`
+- `--extras-links`, `--extras-image-links`, `--context`
+- `--filter-empty-results`, `--contents-flags <flag ...>`
 - `--livecrawl`: `always|preferred|fallback|never` (<https://docs.exa.ai/reference/livecrawling-contents>)
 Docs: <https://docs.exa.ai/reference/get-contents>
 
