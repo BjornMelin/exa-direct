@@ -141,6 +141,11 @@ venv = ".venv"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+  "unit: fast-running unit tests",
+  "integration: integration-level tests",
+  "e2e: end-to-end behavioural tests",
+]
 
 [tool.pylint.main]
 fail-under = 9.5
