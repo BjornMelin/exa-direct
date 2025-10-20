@@ -10,11 +10,18 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   "exa_py>=1.16.1,<2.0",
-  "httpx>=0.27,<1.0",
+  "httpx>=0.28.1,<0.29",
+  "openai>=2.5.0,<3.0",
+  "openai-agents>=0.4.0,<1.0",
+  "structlog>=25.4,<26.0",
+  "pydantic>=2.12,<3.0",
+  "requests>=2.32.3,<3.0",
 ]
 
 [project.urls]
@@ -28,7 +35,6 @@ exa = "exa_direct.cli:main"
 line-length = 88
 target-version = "py314"
 preview = true
-# Decision Framework (§2.1, weighted score 0.90): explicit src roots keep lint/format coverage on maintained trees.
 src = ["src", "tests", "examples"]
 extend-include = ["tests/**/*.py", "examples/**/*.py"]
 
@@ -121,7 +127,6 @@ convention = "google"
 ]
 
 [tool.pyright]
-# Decision Framework (§2.1): mirror maintained directories so pyright type-checks src/tests/examples consistently.
 include = ["src", "tests", "examples"]
 pythonVersion = "3.14"
 typeCheckingMode = "basic"
@@ -137,7 +142,6 @@ venv = ".venv"
 testpaths = ["tests"]
 addopts = "-q"
 
-# Decision Framework (§2.1): align pylint roots with enforced quality gates for src/tests/examples.
 [tool.pylint.main]
 fail-under = 9.5
 py-version = "3.14"
