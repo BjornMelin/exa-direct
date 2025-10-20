@@ -198,6 +198,35 @@ exa answer --query "Latest AI developments" --stream
 - **Future-ready:** When the SDK adds features, exa-direct gains them immediately because the CLI mirrors the
   underlying `exa_py` surface one-to-one.
 
+## Workflow Engine
+
+The new workflow registry powers the `exa workflow` command group, OpenAI Responses function tools, and Agents SDK
+integrations. Use it to orchestrate complex workflows across CLI, Codex CLI, Responses, and Agents.
+
+```bash
+# List available workflows
+exa workflow list
+
+# Inspect schemas and the default execution plan
+exa workflow describe research_run --schema
+
+# Run a workflow with inline parameters
+exa workflow run search_cli --param query="vector databases" --param num_results=5
+
+# Dry-run (plan only) without execution
+exa workflow run research_run --param instructions="Summarize AGI progress" --dry-run
+```
+
+All workflows share the same implementation regardless of surface—CLI,
+Codex CLI (via subprocess), Responses API, or Agents SDK.
+
+### OpenAI Integrations
+
+- Enable integrations by setting `EXA_DIRECT_ENABLE_OPENAI=1` before building Responses function tools
+  or Agents SDK tooling helpers.
+- Use `exa_direct.integrations.responses.workflow_function_tool` to expose any workflow as a Responses function tool.
+- Use `exa_direct.integrations.agents.workflow_tool` to wrap workflows as agent tools in the OpenAI Agents SDK.
+
 ## Use Cases
 
 **Research Agent:** Multi-source synthesis with structured output
