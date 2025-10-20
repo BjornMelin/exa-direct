@@ -79,6 +79,7 @@ class ExaService:
         response = self._exa.search_and_contents(query, **payload)
         return _to_dict(response)
 
+    # pylint: disable=too-many-locals
     def contents(
         self,
         *,
