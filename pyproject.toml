@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
   "exa_py>=1.16.1,<2.0",
-  "httpx>=0.28.1,<0.29",
+  "httpx[http2]>=0.28.1,<0.29",
   "openai>=2.5.0,<3.0",
   "openai-agents>=0.4.0,<1.0",
   "structlog>=25.4,<26.0",
