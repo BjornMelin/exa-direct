@@ -60,7 +60,7 @@ async def _fetch_single_content(
             content_options["urls"] = [url]
             # Fetch contents for the single URL.
             return await asyncio.to_thread(service.contents, **content_options)
-        except httpx.RequestError, httpx.HTTPStatusError, RuntimeError:
+        except (httpx.RequestError, httpx.HTTPStatusError, RuntimeError):
             if attempt == retries:
                 # All retry attempts exhausted, re-raise the last exception
                 raise
