@@ -5,7 +5,9 @@
 ### 401/403 Unauthorized
 
 - Symptom: HTTP 401/403 from Exa endpoints.
-- Fix: Ensure `EXA_API_KEY` is exported or pass `--api-key` on the command line.
+- Fix: Ensure `EXA_API_KEY` is exported, present in a local `.env`, or pass
+  `--api-key` on the command line. Optional helpers (`OPENAI_API_KEY`,
+  `EXA_DIRECT_ENABLE_OPENAI`) follow the same environment/.env patterns.
 - Check: `echo $EXA_API_KEY` should print a non-empty value.
 
 ### Empty or slow responses
@@ -13,6 +15,15 @@
 - Use `--type fast` for latency-sensitive searches (see <https://docs.exa.ai/reference/how-exa-search-works>).
 - Avoid `--text`/`--highlights` unless necessary (they increase payload size).
 - Prefer `--livecrawl preferred` to balance freshness and reliability (<https://docs.exa.ai/reference/livecrawling-contents>).
+
+### Context HTTP/2 negotiation failures
+
+- Symptom: Errors such as `RemoteProtocolError: HTTP/2 negotiation failed`.
+- Fix: The CLI automatically retries and downgrades to HTTP/1.1. Ensure you are
+  running the latest version; no manual flag changes are required unless a proxy
+  blocks HTTP/1.1 entirely.
+- Optional: Install `httpx[http2]` to regain HTTP/2 if it was removed; the CLI
+  will resume using it when negotiations succeed.
 
 ### Research stream shows no events
 

@@ -21,6 +21,11 @@ pip install -e .
 export EXA_API_KEY=sk-...
 ```
 
+You can also create a `.env` file containing any of the supported variables:
+`EXA_API_KEY`, `OPENAI_API_KEY`, `EXA_DIRECT_ENABLE_OPENAI`. The CLI loads the
+file automatically, so `--api-key` is optional for daily use and OpenAI helpers
+pick up their credentials with no extra wiring.
+
 ## First Run
 
 - Fast search with page text:
@@ -61,11 +66,15 @@ exa research stream --id <researchId> | jq .
 exa context query --query "pandas groupby examples" --tokensNum dynamic
 ```
 
+> Global flags (`--api-key`, `--pretty`, `--save`) can be placed either before
+> or after the subcommand; the CLI normalises both forms.
+
 ### Transport notes (Context)
 
-The Context client uses HTTP/2 with a total timeout. Transient network
-errors and HTTP 5xx responses are retried with short backoff
-(0.1s, 0.2s, 0.5s) before a final attempt.
+The Context client prefers HTTP/2 with a total timeout. Transient network
+errors and HTTP 5xx responses are retried with short backoff (0.1s, 0.2s,
+0.5s) before a final attempt, and the transport downgrades to HTTP/1.1
+automatically when HTTP/2 support is unavailable.
 
 ## References
 

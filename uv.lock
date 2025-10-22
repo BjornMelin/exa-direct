@@ -199,6 +199,7 @@ dependencies = [
     { name = "openai" },
     { name = "openai-agents" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "requests" },
     { name = "structlog" },
 ]
@@ -218,6 +219,7 @@ requires-dist = [
     { name = "openai", specifier = ">=2.5.0,<3.0" },
     { name = "openai-agents", specifier = ">=0.4.0,<1.0" },
     { name = "pydantic", specifier = ">=2.12,<3.0" },
+    { name = "python-dotenv", specifier = ">=1.0,<2" },
     { name = "requests", specifier = ">=2.32.3,<3.0" },
     { name = "structlog", specifier = ">=25.4,<26.0" },
 ]

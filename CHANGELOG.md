@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Restore CLI compatibility with `exa_py` dataclass responses by teaching `_to_dict`
+  to normalize dataclasses recursively, eliminating `TypeError` crashes on
+  `search`, `find-similar`, `contents`, and research commands.
+
 ## [0.2.0] - 2025-10-20
 
 ### Added

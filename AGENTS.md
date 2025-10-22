@@ -161,6 +161,11 @@ Use this snippet in your own AGENTS.md to enable GPT‑5‑Codex/GPT‑5 agents 
 - Tool: `exa` (CLI)
 - Env: requires `EXA_API_KEY`; or pass `--api-key` per call.
 - Output: JSON to stdout; add `--pretty` and/or `--save path.json`.
+- Global flags (`--api-key`, `--pretty`, `--save`) are accepted before or after
+  the subcommand, so doc snippets like `exa search … --pretty` work verbatim.
+- `.env` files containing `EXA_API_KEY`, `OPENAI_API_KEY`, or
+  `EXA_DIRECT_ENABLE_OPENAI` are auto-loaded, so agents rarely need to inject
+  credentials explicitly unless overriding defaults.
 
 ### When to call
 
