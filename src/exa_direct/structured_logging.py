@@ -5,14 +5,22 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from functools import lru_cache
+from typing import Any
 
 import structlog
 
-_CONTEXT_VARS = {
-    "workflow_id": structlog.contextvars.bind_contextvars,
-    "request_id": structlog.contextvars.bind_contextvars,
-    "agent_run_id": structlog.contextvars.bind_contextvars,
+__all__ = ["bind", "configure", "get_logger", "redact_payload"]
+
+_SENSITIVE_KEYS = {
+    "api_key",
+    "authorization",
+    "x-api-key",
+    "password",
+    "token",
+    "secret",
 }
+_MAX_VALUE_LENGTH = 2048
 
 
 def _shared_processors() -> list[structlog.types.Processor]:
@@ -48,6 +56,34 @@ def configure() -> None:
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
+    _load_redact_setting.cache_clear()
+    _load_redact_setting()
+
+
+@lru_cache(maxsize=1)
+def _load_redact_setting() -> bool:
+    return os.getenv("EXA_DIRECT_LOG_REDACT", "1").lower() not in {"0", "false", "no"}
+
+
+def _redact_value(key: str | None, value: Any) -> Any:
+    if key and key.lower() in _SENSITIVE_KEYS:
+        return "***"
+    if isinstance(value, str) and len(value) > _MAX_VALUE_LENGTH:
+        return value[:_MAX_VALUE_LENGTH] + "…"
+    if isinstance(value, dict):
+        return {k: _redact_value(k, v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_value(None, item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_value(None, item) for item in value)
+    return value
+
+
+def redact_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a redacted copy of the payload when redaction is enabled."""
+    if not _load_redact_setting():
+        return payload
+    return {key: _redact_value(key, value) for key, value in payload.items()}
 
 
 @contextmanager

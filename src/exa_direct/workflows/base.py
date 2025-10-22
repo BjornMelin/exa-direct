@@ -10,7 +10,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict
 from structlog.stdlib import BoundLogger
 
-from ..structured_logging import bind, get_logger
+from ..structured_logging import bind, get_logger, redact_payload
 
 
 class WorkflowInputs(BaseModel):
@@ -66,6 +66,14 @@ class WorkflowContext:
         """Structlog logger bound to the workflow context."""
         return cast(BoundLogger, get_logger(self.logger_name))
 
+    def log_step(self, step: str, *, status: str = "start", **metadata: Any) -> None:
+        """Emit a workflow.step event for the current workflow."""
+        self.logger.info("workflow.step", step=step, status=status, **metadata)
+
+    def log_retry(self, step: str, *, attempt: int, **metadata: Any) -> None:
+        """Emit a workflow.retry event for the current workflow."""
+        self.logger.info("workflow.retry", step=step, attempt=attempt, **metadata)
+
 
 @dataclass
 class WorkflowDefinition(Generic[InputsT_contra, OutputsT_co]):  # noqa: UP046
@@ -97,8 +105,19 @@ def execute(
             BoundLogger,
             get_logger("exa_direct.workflow").bind(workflow=definition.name),
         )
-        logger.info("workflow.start", inputs=inputs.model_dump(exclude_none=True))
+        inputs_payload = redact_payload(inputs.model_dump(exclude_none=True))
+        logger.info("workflow.start", inputs=inputs_payload)
+        plan = definition.plan(inputs)
+        if plan:
+            logger.info(
+                "workflow.plan",
+                steps=[
+                    {"name": step.name, "description": step.description}
+                    for step in plan
+                ],
+            )
         context = WorkflowContext(workflow_id=workflow_id, service=service)
         result = definition.run(inputs, context)
-        logger.info("workflow.succeeded", outputs=result.model_dump(exclude_none=True))
+        outputs_payload = redact_payload(result.model_dump(exclude_none=True))
+        logger.info("workflow.succeeded", outputs=outputs_payload)
     return result

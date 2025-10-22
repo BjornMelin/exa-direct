@@ -1,3 +1,4 @@
+# pylint: disable=no-member
 """Thin wrapper around the Exa API for CLI usage.
 
 This module provides a high-level interface to Exa API endpoints, including
@@ -7,18 +8,26 @@ the official exa_py SDK with additional functionality for CLI operations.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import time
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping
 from typing import Any, cast
 
+from dotenv import load_dotenv
+
 import httpx
 from exa_py import Exa
+
+from . import structured_logging
 
 # API endpoints
 _API_BASE = "https://api.exa.ai"
 _RESEARCH_BASE = f"{_API_BASE}/research/v1"
+
+LOGGER = structured_logging.get_logger(__name__)
+_HTTP_TIMEOUT_SECONDS = 60.0
 
 
 class ExaService:
@@ -47,9 +56,11 @@ class ExaService:
         # persistent HTTP client for non-SDK endpoints (Context). Enable HTTP/2
         # with a total timeout.
         self._http_provided = http is not None
-        self._http = http or httpx.Client(
-            http2=True, timeout=60.0, headers={"x-api-key": api_key}
-        )
+        if http is not None:
+            self._http = http
+            self._http2_enabled = bool(getattr(http, "http2", False))
+        else:
+            self._http, self._http2_enabled = _create_http_client(api_key)
 
     def search(self, *, query: str, params: Mapping[str, Any]) -> dict[str, Any]:
         """Execute the search endpoint.
@@ -348,13 +359,22 @@ class ExaService:
                     time.sleep(delay)
                 else:
                     raise
-            except httpx.RequestError:
+            except httpx.RequestError as exc:
+                if self._downgrade_on_http2_error(exc):
+                    continue
                 time.sleep(delay)  # Network-level error: sleep and retry
 
         # Final attempt
-        resp = self._http.post(url, json=payload)
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            resp = self._http.post(url, json=payload)
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.RequestError as exc:
+            if self._downgrade_on_http2_error(exc):
+                resp = self._http.post(url, json=payload)
+                resp.raise_for_status()
+                return resp.json()
+            raise
 
     def close(self) -> None:
         """Close the internally managed HTTP client."""
@@ -370,12 +390,74 @@ class ExaService:
         del exc_type, exc, tb
         self.close()
 
+    def _downgrade_on_http2_error(self, error: Exception) -> bool:
+        """Downgrade to HTTP/1 when HTTP/2 connectivity fails.
+
+        Args:
+            error: The triggering request error.
+
+        Returns:
+            True when the client was rebuilt, False otherwise.
+        """
+        if self._http_provided or not getattr(self, "_http2_enabled", False):
+            return False
+        if not _is_http2_negotiation_error(error):
+            return False
+        self._http.close()
+        self._http, self._http2_enabled = _create_http_client(
+            self._api_key, prefer_http2=False
+        )
+        LOGGER.warning(
+            "http_client.http2_downgraded",
+            reason=str(error),
+            message="Exa context transport downgraded to HTTP/1.1",
+        )
+        return True
+
+
+def _create_http_client(
+    api_key: str, *, prefer_http2: bool = True
+) -> tuple[httpx.Client, bool]:
+    """Create an httpx client preferring HTTP/2 with graceful fallback."""
+    common_kwargs: dict[str, Any] = {
+        "timeout": _HTTP_TIMEOUT_SECONDS,
+        "headers": {"x-api-key": api_key},
+    }
+    if not prefer_http2:
+        client = httpx.Client(http2=False, **common_kwargs)
+        return client, False
+    try:
+        client = httpx.Client(http2=True, **common_kwargs)
+        return client, True
+    except (ImportError, AttributeError, httpx.UnsupportedProtocol) as exc:
+        LOGGER.warning(
+            "http_client.http2_unavailable",
+            reason=str(exc),
+            message="Falling back to HTTP/1.1 transport.",
+        )
+        return _create_http_client(api_key, prefer_http2=False)
+
+
+def _is_http2_negotiation_error(error: Exception) -> bool:
+    """Return True when the error indicates an HTTP/2 negotiation failure."""
+    http2_related = (
+        httpx.RemoteProtocolError,
+        httpx.LocalProtocolError,
+        httpx.UnsupportedProtocol,
+    )
+    if isinstance(error, http2_related):
+        return True
+    text = str(error).upper()
+    return "HTTP/2" in text or "ALPN" in text or "H2" in text
+
 
 def resolve_api_key(explicit: str | None) -> str:
     """Resolve the Exa API key from CLI flag or environment variable."""
     # Check explicit key first
     if explicit:
         return explicit
+
+    load_dotenv()
 
     # Check environment variable
     if env_key := os.getenv("EXA_API_KEY"):
@@ -402,6 +484,10 @@ def _to_dict(response: Any) -> dict[str, Any]:
     if hasattr(response, "dict"):
         raw = cast(Mapping[str, Any], response.dict())
         return dict(raw)
+
+    # Handle dataclass responses from newer exa_py releases
+    if dataclasses.is_dataclass(response) and not isinstance(response, type):
+        return dataclasses.asdict(response)
 
     # Handle mapping-like objects
     if isinstance(response, Mapping):

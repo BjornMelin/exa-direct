@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable, Mapping
+from itertools import starmap
 from typing import Any
 
 import httpx
@@ -59,7 +60,7 @@ async def _fetch_single_content(
             content_options["urls"] = [url]
             # Fetch contents for the single URL.
             return await asyncio.to_thread(service.contents, **content_options)
-        except (httpx.RequestError, httpx.HTTPStatusError, RuntimeError):
+        except httpx.RequestError, httpx.HTTPStatusError, RuntimeError:
             if attempt == retries:
                 # All retry attempts exhausted, re-raise the last exception
                 raise
@@ -84,22 +85,25 @@ async def fetch_contents_parallel(
     backoff: float = 0.5,
 ) -> list[dict[str, Any]]:
     """Fetch contents for multiple URLs using bounded concurrency."""
+    url_list = list(urls)
+    if not url_list:
+        return []
+
     # Create a semaphore to limit concurrent HTTP requests.
     semaphore = asyncio.Semaphore(concurrency)
-    results: list[dict[str, Any]] = []
+    results: list[dict[str, Any] | None] = [None] * len(url_list)
 
     # Define a worker function to fetch contents for a single URL.
-    async def worker(target: str) -> None:
+    async def worker(idx: int, target: str) -> None:
         """Fetch contents for a single URL using retries and backoff."""
         async with semaphore:
-            response = await _fetch_single_content(
+            results[idx] = await _fetch_single_content(
                 service, target, options, retries=retries, backoff=backoff
             )
-            results.append(response)
 
     # Execute the worker functions for each URL in parallel.
-    await asyncio.gather(*(worker(url) for url in urls))
-    return results
+    await asyncio.gather(*starmap(worker, enumerate(url_list)))
+    return [item for item in results if item is not None]
 
 
 def start_research(

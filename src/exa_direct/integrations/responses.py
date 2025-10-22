@@ -1,18 +1,26 @@
 """Helpers for exposing workflows as OpenAI Responses function tools."""
 
-# pylint: disable=duplicate-code
-
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from .. import client
+from .. import client, structured_logging
 from ..workflows import registry
 
 _ENABLED_VALUES = {"1", "true", "yes"}
+_CACHE_DEFAULT = os.getenv("EXA_DIRECT_RESPONSES_CACHE", "1").lower() not in {
+    "0",
+    "false",
+    "no",
+}
+_REQUIRE_APPROVAL = os.getenv("EXA_DIRECT_RESPONSES_REQUIRE_APPROVAL", "0").lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 
 def _ensure_openai_enabled() -> None:
@@ -30,13 +38,15 @@ def _default_service_factory() -> client.ExaService:
     return client.create_service(api_key)
 
 
-@dataclass
+@dataclass(slots=True)
 class WorkflowFunctionTool:
     """Container that mirrors Responses function tool metadata."""
 
     name: str
     description: str
     parameters: dict[str, Any]
+    response: dict[str, Any]
+    metadata: dict[str, Any]
     handler: Callable[..., dict[str, Any]]
 
 
@@ -50,25 +60,54 @@ def workflow_function_tool(
     factory = service_factory or _default_service_factory
     if service_factory is None:
         _ensure_openai_enabled()
+    log = structured_logging.get_logger("exa_direct.responses")
 
     def _handler(**kwargs: Any) -> dict[str, Any]:
         """Execute the named workflow with keyword arguments from Responses."""
+        payload = structured_logging.redact_payload(kwargs)
+        log.info("responses.tool.start", workflow=name, inputs=payload)
         service = factory()
         try:
             inputs = definition.inputs_type(**kwargs)
             outputs = registry.execute(name, service, inputs)
-            # Responses function tools expect compact payloads; we surface the
-            # workflow outputs directly to keep contracts minimal.
-            return outputs.model_dump(exclude_none=True)
+            result = structured_logging.redact_payload(
+                outputs.model_dump(exclude_none=True)
+            )
+            log.info("responses.tool.succeeded", workflow=name, outputs=result)
+            return result
+        except Exception as exc:  # pylint: disable=broad-except
+            log.exception(
+                "responses.tool.failed",
+                workflow=name,
+                error_type=type(exc).__name__,
+                message=str(exc),
+            )
+            raise
         finally:
             closer = getattr(service, "close", None)
             if callable(closer):
                 closer()
 
-    # Return the function tool spec.
     return WorkflowFunctionTool(
         name=definition.name,
         description=definition.summary,
         parameters=definition.inputs_type.model_json_schema(),
+        response=definition.outputs_type.model_json_schema(),
+        metadata={
+            "x-cache-default": _CACHE_DEFAULT,
+            "x-require-approval": _REQUIRE_APPROVAL,
+        },
         handler=_handler,
     )
+
+
+def list_workflow_tools(
+    *,
+    service_factory: Callable[[], client.ExaService] | None = None,
+) -> Iterable[WorkflowFunctionTool]:
+    """Yield workflow function tools for every registered workflow."""
+    for definition in registry.list():
+        yield workflow_function_tool(
+            definition.name,
+            service_factory=service_factory,
+        )
