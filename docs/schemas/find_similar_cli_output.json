@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the single-step CLI similarity workflow.",
+  "properties": {
+    "results": {
+      "additionalProperties": true,
+      "title": "Results",
+      "type": "object"
+    }
+  },
+  "required": [
+    "results"
+  ],
+  "title": "FindSimilarCLIOutputs",
+  "type": "object"
+}

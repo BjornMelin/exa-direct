@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the ``research_run`` workflow.",
+  "properties": {
+    "task": {
+      "additionalProperties": true,
+      "title": "Task",
+      "type": "object"
+    }
+  },
+  "required": [
+    "task"
+  ],
+  "title": "ResearchRunOutputs",
+  "type": "object"
+}

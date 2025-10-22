@@ -1,0 +1,48 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the ``search_collect`` workflow.",
+  "properties": {
+    "fetch_contents": {
+      "default": false,
+      "description": "Fetch contents for each result via search_and_contents.",
+      "title": "Fetch Contents",
+      "type": "boolean"
+    },
+    "num_results": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": 10,
+      "description": "Number of results to return.",
+      "title": "Num Results"
+    },
+    "query": {
+      "description": "Search query.",
+      "title": "Query",
+      "type": "string"
+    },
+    "type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Search type (auto, neural, keyword, fast, hybrid, deep).",
+      "title": "Type"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "SearchCollectInputs",
+  "type": "object"
+}

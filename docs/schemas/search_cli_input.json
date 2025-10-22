@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the single-step CLI search workflow.",
+  "properties": {
+    "contents_params": {
+      "additionalProperties": true,
+      "title": "Contents Params",
+      "type": "object"
+    },
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "search_params": {
+      "additionalProperties": true,
+      "title": "Search Params",
+      "type": "object"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "SearchCLIInputs",
+  "type": "object"
+}

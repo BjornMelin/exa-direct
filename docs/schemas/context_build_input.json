@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the ``context_build`` workflow.",
+  "properties": {
+    "query": {
+      "description": "Context query text.",
+      "title": "Query",
+      "type": "string"
+    },
+    "tokens_num": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "dynamic",
+      "description": "Token budget (integer or 'dynamic').",
+      "title": "Tokens Num"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "ContextBuildInputs",
+  "type": "object"
+}

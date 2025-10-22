@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the ``search_collect`` workflow.",
+  "properties": {
+    "results": {
+      "additionalProperties": true,
+      "title": "Results",
+      "type": "object"
+    }
+  },
+  "required": [
+    "results"
+  ],
+  "title": "SearchCollectOutputs",
+  "type": "object"
+}
