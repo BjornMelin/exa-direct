@@ -10,6 +10,9 @@ This page summarizes the command set exposed by `exa_direct.cli` and how each co
 | `--pretty` | Pretty-prints JSON output only at the CLI layer; returned dictionaries stay unchanged. |
 | `--save <path>` | Writes the final JSON payload to disk and still emits the same payload to stdout. |
 
+Global options are wired through a shared parent parser, so they can be placed
+before _or_ after the chosen subcommand without triggering argparse errors.
+
 `--pretty` and `--save` are evaluated after the command handler returns, so they apply uniformly to every command.
 
 ## Commands
@@ -40,11 +43,13 @@ Every handler delegates directly to the workflow registry so documentation here 
 
 ## Configuration Precedence
 
-Current precedence for configuration inputs:
+Configuration precedence:
 
 1. CLI flag (`--api-key`, etc.).
-2. Environment variable (`EXA_API_KEY`).
-3. No configuration files or defaults beyond those baked into the CLI are currently supported.
+2. Environment variables (e.g., `EXA_API_KEY`, `OPENAI_API_KEY`,
+   `EXA_DIRECT_ENABLE_OPENAI`). `.env` files in the working directory are
+   auto-loaded before this check, so all three can live there.
+3. No other configuration files or defaults are currently supported.
 
 Future configuration files must sit below CLI flags and environment variables to avoid breaking automation. No hidden
 state is stored across runs; workflows operate solely on provided parameters and inline JSON payloads.

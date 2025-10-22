@@ -32,7 +32,7 @@
 ## Dependencies
 
 - `exa_py` for supported methods (search, find_similar, answer, research helpers, etc.).
-- `requests` for REST (Context endpoint). Research streaming uses the SDK.
+- `httpx` for REST (Context endpoint). Research streaming uses the SDK.
 
 ## Non-Goals
 

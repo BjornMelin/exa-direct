@@ -16,6 +16,8 @@ Documentation is organized for end users and developers.
 - **Architecture:** [Architecture](developers/architecture.md)
 - **CLI Surface:** [CLI Surface](developers/cli.md)
 - **Logging:** [Logging](developers/logging.md)
+- **Workflow Engine Guide:** [Workflow Engine Guide](workflows/index.md)
+- **Agents SDK Integration:** [Agents SDK Integration](developers/agents.md)
 - **Testing & Quality Gates:** [Testing & Quality Gates](developers/testing.md)
 - **Contributing Guidelines:** [Contributing Guidelines](developers/contributing.md)
 - **Architecture Decision Records (ADRs):**
@@ -38,6 +40,7 @@ Documentation is organized for end users and developers.
   - **ADR-0017:** [ADR-0017](developers/adr/ADR-0017-agent-output-contract.md)
   - **ADR-0018:** [ADR-0018](developers/adr/ADR-0018-workflow-registry.md)
   - **ADR-0019:** [ADR-0019](developers/adr/ADR-0019-structlog-adoption.md)
+  - **ADR-0020:** [ADR-0020](developers/adr/ADR-0020-instructor-integration.md)
 
 ## Product Requirements
 
