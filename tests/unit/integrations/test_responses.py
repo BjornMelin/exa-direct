@@ -8,7 +8,10 @@ import pytest
 
 from exa_direct import client as client_module
 from exa_direct._testing import StubService
-from exa_direct.integrations.responses import workflow_function_tool
+from exa_direct.integrations.responses import (
+    list_workflow_tools,
+    workflow_function_tool,
+)
 from exa_direct.workflows import registry
 
 pytestmark = pytest.mark.unit
@@ -35,6 +38,8 @@ def test_responses_function_tool_executes_workflow(
     assert result["answer"]["query"] == "hello"
     assert result["answer"]["options"]["include_text"] is True
     assert service.close_calls == 1
+    assert tool.metadata["x-cache-default"] in {True, False}
+    assert isinstance(tool.response, dict)
 
 
 def test_responses_requires_toggle(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,3 +47,13 @@ def test_responses_requires_toggle(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("EXA_DIRECT_ENABLE_OPENAI", raising=False)
     with pytest.raises(RuntimeError):
         workflow_function_tool("search_cli")
+
+
+def test_list_workflow_tools_returns_all(enable_openai: None) -> None:
+    """The helper should yield tools for every registered workflow."""
+    names = {defn.name for defn in registry.list()}
+    tools = list(list_workflow_tools())
+    assert {tool.name for tool in tools} == names
+    for tool in tools:
+        assert "properties" in tool.parameters
+        assert "properties" in tool.response
