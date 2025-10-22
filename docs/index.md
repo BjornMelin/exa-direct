@@ -20,6 +20,7 @@ Documentation is organized for end users and developers.
 - **Agents SDK Integration:** [Agents SDK Integration](developers/agents.md)
 - **Testing & Quality Gates:** [Testing & Quality Gates](developers/testing.md)
 - **Contributing Guidelines:** [Contributing Guidelines](developers/contributing.md)
+- **Exa Py API Reference:** [Exa Py API Reference](developers/exa_py_api_reference.md)
 - **Architecture Decision Records (ADRs):**
   - **ADR-0001:** [ADR-0001](developers/adr/ADR-0001-direct-exa-integration.md)
   - **ADR-0002:** [ADR-0002](developers/adr/ADR-0002-python-first-cli.md)
@@ -41,6 +42,15 @@ Documentation is organized for end users and developers.
   - **ADR-0018:** [ADR-0018](developers/adr/ADR-0018-workflow-registry.md)
   - **ADR-0019:** [ADR-0019](developers/adr/ADR-0019-structlog-adoption.md)
   - **ADR-0020:** [ADR-0020](developers/adr/ADR-0020-instructor-integration.md)
+
+## Templates
+
+- **AGENTS Template:** [AGENTS Template](templates/AGENTS_TEMPLATE.md)
+- **How to Use the AGENTS Template:** [How to Use](templates/how-to-use.md)
+
+## Planning Documents
+
+- **2025-10-20 Comprehensive Plan:** [2025-10-20 Plan](plans/2025-10-20-plan.md)
 
 ## Product Requirements
 
