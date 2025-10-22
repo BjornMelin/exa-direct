@@ -1,4 +1,4 @@
-# ADR-0012: Evaluate Instructor (python.useinstructor.com) for Typed Outputs
+# ADR-0020: Evaluate Instructor (python.useinstructor.com) for Typed Outputs
 
 Date: 2025-10-19
 Status: Rejected for now
