@@ -19,7 +19,7 @@ def test_build_coordinator_returns_agents(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Coordinator exposes all workflows and returns specialists."""
-    agents = pytest.importorskip("agents")  # noqa: F841 - ensures dependency present
+    _ = pytest.importorskip("agents")
     monkeypatch.setenv("EXA_API_KEY", "stub")
     monkeypatch.setattr(
         agents_module.client, "resolve_api_key", lambda explicit: "stub"
@@ -50,11 +50,12 @@ def test_list_workflow_specialists(enable_openai: None) -> None:
     assert names == {wf.name for wf in agents_module.registry.list()}
 
 
-@pytest.mark.asyncio
-async def test_specialist_executes_workflow(
+def test_specialist_executes_workflow(
     monkeypatch: pytest.MonkeyPatch, enable_openai: None
 ) -> None:
-    """Specialist tool executes workflow when invoked."""
+    """Specialist tool executes workflow when invoked (no asyncio plugin needed)."""
+    import asyncio
+
     pytest.importorskip("agents")
     monkeypatch.setenv("EXA_API_KEY", "stub")
     monkeypatch.setattr(
@@ -75,7 +76,37 @@ async def test_specialist_executes_workflow(
     )
     specialist = next(spec for spec in specialists if spec.name == "answer_cli")
     tool = specialist.agent.tools[0]  # type: ignore[index]
-    result = await tool(query="hello", options={})  # type: ignore[misc]
-    assert "answer" in result or isinstance(result, dict)
+
+    async def _run() -> None:
+        import json as _json
+
+        from agents.tool_context import ToolContext  # type: ignore[import-not-found]
+
+        # Invoke the tool via its on_invoke_tool using a minimal ToolContext.
+        ctx = ToolContext(
+            context=None,  # type: ignore[arg-type]
+            tool_name=getattr(tool, "name", "workflow_answer_cli"),
+            tool_call_id="test_call",
+            tool_arguments=_json.dumps({"kwargs": {"query": "hello", "options": {}}}),
+        )
+        result = await tool.on_invoke_tool(
+            ctx,
+            ctx.tool_arguments,  # type: ignore[attr-defined]
+        )
+        assert "answer" in result or isinstance(result, dict)
+
+    asyncio.run(_run())
     if created:
         assert created[0].close_calls == 0
+
+
+def test_coordinator_has_all_specialist_tools(enable_openai: None) -> None:
+    """Coordinator agent includes one tool per workflow specialist."""
+    pytest.importorskip("agents")
+    settings = agents_module.CoordinatorSettings(model="gpt-4.1-mini")
+    coordinator, specialists = agents_module.build_coordinator(settings=settings)
+    assert coordinator.agent is not None
+    tool_names = {getattr(t, "name", None) for t in coordinator.agent.tools}
+    # All specialist tools should be present on the coordinator (as_tool names)
+    expected = {spec.tool_name for spec in specialists}
+    assert expected.issubset(tool_names)

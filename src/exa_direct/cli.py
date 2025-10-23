@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -64,6 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     _register_answer(subparsers, global_options)
     _register_research(subparsers, global_options)
     _register_context(subparsers, global_options)
+    _register_agents(subparsers, global_options)
     _register_workflow(subparsers, global_options)
 
     return parser
@@ -312,6 +314,39 @@ def _register_context(
     )
 
 
+def _register_agents(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
+) -> None:
+    """Register the `agents` command group."""
+    agents = subparsers.add_parser(
+        "agents", help="OpenAI Agents SDK orchestration", parents=[global_options]
+    )
+    asubs = agents.add_subparsers(dest="agents_cmd", required=True)
+
+    run = asubs.add_parser("run", help="Run the coordinator over an input prompt")
+    run.add_argument("--input", required=True, help="User prompt")
+    run.add_argument("--model", dest="model", help="Coordinator model override")
+    run.add_argument(
+        "--specialist-model", dest="specialist_model", help="Specialist model override"
+    )
+    run.add_argument(
+        "--max-turns", dest="max_turns", type=int, help="Max agent loop turns"
+    )
+    run.add_argument(
+        "--session-id", dest="session_id", help="Conversation/session identifier"
+    )
+    run.add_argument(
+        "--session-backend",
+        dest="session_backend",
+        choices=["none", "sqlite", "advanced_sqlite"],
+        help="Session backend (default derives from --session-id)",
+    )
+    run.add_argument(
+        "--session-db", dest="session_db", help=":memory: or path to SQLite DB"
+    )
+
+
 def _register_workflow(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
     global_options: argparse.ArgumentParser,
@@ -442,6 +477,7 @@ def _dispatch(
         "answer": _handle_answer,
         "research": _handle_research,
         "context": _handle_context,
+        "agents": _handle_agents,
         "workflow": _handle_workflow,
     }
 
@@ -616,10 +652,9 @@ def _handle_workflow(
             description["output_schema"] = definition.outputs_type.model_json_schema()
         plan_inputs = definition.inputs_type.model_construct()
         plan = definition.plan(plan_inputs)
-        if plan:
-            description["plan"] = [
-                {"name": step.name, "description": step.description} for step in plan
-            ]
+        description["plan"] = [
+            {"name": step.name, "description": step.description} for step in plan
+        ]
         return description
 
     if args.workflow_cmd == "run":
@@ -640,6 +675,50 @@ def _handle_workflow(
             "outputs": outputs.model_dump(exclude_none=True),
         }
     raise ValueError(f"Unknown workflow subcommand: {args.workflow_cmd}")
+
+
+def _handle_agents(
+    _service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
+    """Execute `agents` subcommands using the Agents SDK integration."""
+    if os.getenv("EXA_DIRECT_ENABLE_OPENAI", "0").lower() not in {"1", "true", "yes"}:
+        raise RuntimeError(
+            "Agents disabled. Set EXA_DIRECT_ENABLE_OPENAI=1 and install openai-agents."
+        )
+    from exa_direct.integrations import agents as agents_module  # lazy import
+
+    if args.agents_cmd != "run":
+        raise ValueError(f"Unknown agents subcommand: {args.agents_cmd}")
+
+    settings_kwargs: dict[str, Any] = {}
+    if getattr(args, "model", None):
+        settings_kwargs["model"] = args.model
+    if getattr(args, "specialist_model", None):
+        settings_kwargs["specialist_model"] = args.specialist_model
+    if getattr(args, "max_turns", None) is not None:
+        settings_kwargs["max_turns"] = args.max_turns
+    settings = agents_module.CoordinatorSettings(
+        model=settings_kwargs.get(
+            "model", os.getenv("EXA_DIRECT_AGENTS_MODEL", "gpt-4.1-mini")
+        ),
+        max_turns=settings_kwargs.get("max_turns"),
+        specialist_model=settings_kwargs.get("specialist_model"),
+    )
+
+    import asyncio as _asyncio
+
+    async def _run():
+        return await agents_module.run_coordinator(
+            args.input,
+            settings=settings,
+            context=agents_module.WorkflowAgentContext(conversation_id=args.session_id),
+            session_id=args.session_id,
+            session_backend=args.session_backend,
+            session_db_path=args.session_db,
+        )
+
+    result = _asyncio.run(_run())
+    return {"final_output": getattr(result, "final_output", None)}
 
 
 def _resolve_workflow_payload(args: argparse.Namespace, definition) -> Any:

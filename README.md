@@ -321,6 +321,7 @@ exa contents https://docs.example.com/latest \
 - [Best Practices](docs/users/best_practices.md) - Agent integration patterns
 - [Workflow Engine Guide](docs/workflows/index.md) - Workflow catalog & schemas
 - [Agents SDK Integration](docs/developers/agents.md) - Coordinator & specialists
+- [Agentic Workflows](docs/users/agentic_workflows.md) - Run multi-tool agent orchestration
 - [Architecture](docs/developers/architecture.md) - Implementation details
 
 **Changelog:** [CHANGELOG.md](CHANGELOG.md) - Release notes (latest: v0.1.0)

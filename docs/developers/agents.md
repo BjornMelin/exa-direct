@@ -11,7 +11,10 @@ export OPENAI_API_KEY=sk-...
 
 ```python
 from exa_direct.integrations import agents
-from exa_direct.integrations.agents import CoordinatorSettings, WorkflowAgentContext
+from exa_direct.integrations.agents import (
+    CoordinatorSettings,
+    WorkflowAgentContext,
+)
 
 settings = CoordinatorSettings(model="gpt-4.1")
 context = WorkflowAgentContext(conversation_id="demo")
@@ -29,8 +32,9 @@ async def demo():
     result = await agents.run_coordinator(
         "Find RAG benchmarks and summarise the latest ones",
         context=WorkflowAgentContext(conversation_id="demo"),
+        settings=CoordinatorSettings(model="gpt-4.1-mini", max_turns=8),
     )
-    print(result.final_output)
+    print(getattr(result, "final_output", None))
 
 asyncio.run(demo())
 ```
