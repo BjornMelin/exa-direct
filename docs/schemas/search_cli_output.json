@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the single-step CLI search workflow.",
+  "properties": {
+    "results": {
+      "additionalProperties": true,
+      "title": "Results",
+      "type": "object"
+    }
+  },
+  "required": [
+    "results"
+  ],
+  "title": "SearchCLIOutputs",
+  "type": "object"
+}

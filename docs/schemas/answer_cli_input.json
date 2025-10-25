@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the single-step CLI answer workflow.",
+  "properties": {
+    "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+    },
+    "query": {
+      "title": "Query",
+      "type": "string"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "AnswerCLIInputs",
+  "type": "object"
+}

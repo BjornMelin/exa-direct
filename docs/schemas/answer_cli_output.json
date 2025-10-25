@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the single-step CLI answer workflow.",
+  "properties": {
+    "answer": {
+      "additionalProperties": true,
+      "title": "Answer",
+      "type": "object"
+    }
+  },
+  "required": [
+    "answer"
+  ],
+  "title": "AnswerCLIOutputs",
+  "type": "object"
+}

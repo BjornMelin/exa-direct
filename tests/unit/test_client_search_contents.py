@@ -65,3 +65,33 @@ def test_find_similar_and_contents_merges_filters(
     assert captured["exclude_source_domain"] is True
     assert captured["include_domains"] == ["arxiv.org"]
     assert captured["highlights"] is True
+
+
+def test_contents_supports_metadata_and_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure contents forwards metadata/filter/flags options."""
+    captured: dict[str, Any] = {}
+
+    def _get_contents(**kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
+        nonlocal captured
+        captured = kwargs
+        return {"requestId": "abc"}
+
+    svc = client_module.ExaService("k")
+    monkeypatch.setattr(
+        svc, "_exa", type("X", (), {"get_contents": staticmethod(_get_contents)})
+    )
+
+    response = svc.contents(
+        urls=["https://example.com"],
+        metadata=True,
+        filter_empty_results=True,
+        flags=["beta", "preview"],
+    )
+
+    assert response == {"requestId": "abc"}
+    assert captured["urls"] == ["https://example.com"]
+    assert captured["metadata"] is True
+    assert captured["filter_empty_results"] is True
+    assert captured["flags"] == ["beta", "preview"]

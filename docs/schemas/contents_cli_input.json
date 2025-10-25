@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the single-step CLI contents workflow.",
+  "properties": {
+    "options": {
+      "additionalProperties": true,
+      "title": "Options",
+      "type": "object"
+    },
+    "urls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Urls",
+      "type": "array"
+    }
+  },
+  "required": [
+    "urls"
+  ],
+  "title": "ContentsCLIInputs",
+  "type": "object"
+}

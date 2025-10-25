@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+from pydantic import ValidationError
+
 import httpx
 
-from . import client
+from . import client, structured_logging
 from .printing import print_json, save_json
+from .workflows import registry
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,36 +31,54 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         Configured ArgumentParser with all CLI commands and options.
     """
-    parser = argparse.ArgumentParser(prog="exa", description="Direct Exa API CLI")
-
-    # Global options
-    parser.add_argument("--api-key", dest="api_key", help="Override EXA_API_KEY")
-    parser.add_argument(
-        "--pretty", action="store_true", help="Pretty-print JSON output"
+    global_options = argparse.ArgumentParser(add_help=False)
+    global_options.add_argument(
+        "--api-key",
+        dest="api_key",
+        help="Override EXA_API_KEY",
+        default=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--save", dest="save", help="Optional file path for the JSON output"
+    global_options.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output",
+        default=argparse.SUPPRESS,
+    )
+    global_options.add_argument(
+        "--save",
+        dest="save",
+        help="Optional file path for the JSON output",
+        default=argparse.SUPPRESS,
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="exa", description="Direct Exa API CLI", parents=[global_options]
     )
 
     # Command subparsers
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Register all command parsers
-    _register_search(subparsers)
-    _register_contents(subparsers)
-    _register_find_similar(subparsers)
-    _register_answer(subparsers)
-    _register_research(subparsers)
-    _register_context(subparsers)
+    _register_search(subparsers, global_options)
+    _register_contents(subparsers, global_options)
+    _register_find_similar(subparsers, global_options)
+    _register_answer(subparsers, global_options)
+    _register_research(subparsers, global_options)
+    _register_context(subparsers, global_options)
+    _register_agents(subparsers, global_options)
+    _register_workflow(subparsers, global_options)
 
     return parser
 
 
 def _register_search(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `search` command."""
-    search_parser = subparsers.add_parser("search", help="Search the web with Exa")
+    search_parser = subparsers.add_parser(
+        "search", help="Search the web with Exa", parents=[global_options]
+    )
 
     # Required arguments
     search_parser.add_argument(
@@ -137,10 +160,11 @@ def _register_search(
 
 def _register_contents(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `contents` command."""
     contents_parser = subparsers.add_parser(
-        "contents", help="Fetch page contents by URL"
+        "contents", help="Fetch page contents by URL", parents=[global_options]
     )
 
     # Required arguments
@@ -150,10 +174,13 @@ def _register_contents(
 
 def _register_find_similar(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `find-similar` command."""
     similar_parser = subparsers.add_parser(
-        "find-similar", help="Find pages similar to the provided URL"
+        "find-similar",
+        help="Find pages similar to the provided URL",
+        parents=[global_options],
     )
 
     # Required arguments
@@ -186,9 +213,12 @@ def _register_find_similar(
 
 def _register_answer(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `answer` command."""
-    answer_parser = subparsers.add_parser("answer", help="Ask Exa to answer a question")
+    answer_parser = subparsers.add_parser(
+        "answer", help="Ask Exa to answer a question", parents=[global_options]
+    )
 
     # Required arguments
     answer_parser.add_argument("--query", required=True, help="Question to answer")
@@ -220,9 +250,12 @@ def _register_answer(
 
 def _register_research(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `research` command group."""
-    research = subparsers.add_parser("research", help="Research task operations")
+    research = subparsers.add_parser(
+        "research", help="Research task operations", parents=[global_options]
+    )
     rsubs = research.add_subparsers(dest="research_cmd", required=True)
 
     # Start research task
@@ -265,9 +298,12 @@ def _register_research(
 
 def _register_context(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
 ) -> None:
     """Register the `context` command group."""
-    ctx = subparsers.add_parser("context", help="Exa Code context API")
+    ctx = subparsers.add_parser(
+        "context", help="Exa Code context API", parents=[global_options]
+    )
     csubs = ctx.add_subparsers(dest="context_cmd", required=True)
 
     # Query command
@@ -275,6 +311,93 @@ def _register_context(
     q.add_argument("--query", required=True, help="Query text")
     q.add_argument(
         "--tokensNum", dest="tokens_num", help="dynamic or integer token target"
+    )
+
+
+def _register_agents(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
+) -> None:
+    """Register the `agents` command group."""
+    agents = subparsers.add_parser(
+        "agents", help="OpenAI Agents SDK orchestration", parents=[global_options]
+    )
+    asubs = agents.add_subparsers(dest="agents_cmd", required=True)
+
+    run = asubs.add_parser("run", help="Run the coordinator over an input prompt")
+    run.add_argument("--input", required=True, help="User prompt")
+    run.add_argument("--model", dest="model", help="Coordinator model override")
+    run.add_argument(
+        "--specialist-model", dest="specialist_model", help="Specialist model override"
+    )
+    run.add_argument(
+        "--max-turns", dest="max_turns", type=int, help="Max agent loop turns"
+    )
+    run.add_argument(
+        "--session-id", dest="session_id", help="Conversation/session identifier"
+    )
+    run.add_argument(
+        "--session-backend",
+        dest="session_backend",
+        choices=["none", "sqlite", "advanced_sqlite"],
+        help="Session backend (default derives from --session-id)",
+    )
+    run.add_argument(
+        "--session-db", dest="session_db", help=":memory: or path to SQLite DB"
+    )
+
+
+def _register_workflow(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    global_options: argparse.ArgumentParser,
+) -> None:
+    """Register the `workflow` command."""
+    workflow_parser = subparsers.add_parser(
+        "workflow",
+        help="Inspect and execute registered workflows",
+        parents=[global_options],
+    )
+    w_sub = workflow_parser.add_subparsers(dest="workflow_cmd", required=True)
+
+    w_list = w_sub.add_parser("list", help="List available workflows")
+    w_list.add_argument(
+        "--format",
+        choices=["json", "table"],
+        default="json",
+        help="Output format",
+    )
+
+    w_desc = w_sub.add_parser("describe", help="Describe a workflow")
+    w_desc.add_argument("name", help="Workflow name")
+    w_desc.add_argument(
+        "--schema",
+        action="store_true",
+        help="Include input/output JSON Schemas",
+    )
+
+    w_run = w_sub.add_parser("run", help="Execute a workflow")
+    w_run.add_argument("name", help="Workflow name")
+    w_run.add_argument(
+        "--param",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Inline parameter (repeatable)",
+    )
+    w_run.add_argument(
+        "--input",
+        dest="input_payload",
+        help="JSON payload or @path/to/file.json",
+    )
+    w_run.add_argument(
+        "--plan",
+        action="store_true",
+        help="Show execution plan without running",
+    )
+    w_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Alias for --plan",
     )
 
 
@@ -287,13 +410,17 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Exit code (0 for success, 1 for error).
     """
+    # Load environment configuration and configure logging once.
+    load_dotenv()
+    structured_logging.configure()
+
     # Parse command line arguments
     parser = build_parser()
     args = parser.parse_args(argv)
 
     # Resolve API key
     try:
-        api_key = client.resolve_api_key(args.api_key)
+        api_key = client.resolve_api_key(getattr(args, "api_key", None))
     except RuntimeError as error:
         parser.error(str(error))
 
@@ -350,6 +477,8 @@ def _dispatch(
         "answer": _handle_answer,
         "research": _handle_research,
         "context": _handle_context,
+        "agents": _handle_agents,
+        "workflow": _handle_workflow,
     }
 
     try:
@@ -365,18 +494,25 @@ def _handle_search(
     """Execute the search command."""
     base = _build_search_filters(args)
     contents = _build_contents_options(args)
-    if contents:
-        return service.search_and_contents(
-            query=args.query, search_params=base, content_params=contents
-        )
-    return service.search(query=args.query, params=base)
+    inputs = registry.get("search_cli").inputs_type(
+        query=args.query,
+        search_params=base,
+        contents_params=contents,
+    )
+    result = registry.execute("search_cli", service, inputs)
+    return result.results  # type: ignore[return-value]
 
 
 def _handle_contents(
     service: client.ExaService, args: argparse.Namespace
 ) -> dict[str, Any]:
     """Execute the contents command."""
-    return service.contents(urls=args.urls, **_build_contents_options(args))
+    inputs = registry.get("contents_cli").inputs_type(
+        urls=args.urls,
+        options=_build_contents_options(args),
+    )
+    result = registry.execute("contents_cli", service, inputs)
+    return result.contents  # type: ignore[return-value]
 
 
 def _handle_find_similar(
@@ -385,11 +521,13 @@ def _handle_find_similar(
     """Execute the find-similar command."""
     base = _build_find_filters(args)
     contents = _build_contents_options(args)
-    if contents:
-        return service.find_similar_and_contents(
-            url=args.url, find_params=base, content_params=contents
-        )
-    return service.find_similar(url=args.url, params=base)
+    inputs = registry.get("find_similar_cli").inputs_type(
+        url=args.url,
+        find_params=base,
+        contents_params=contents,
+    )
+    result = registry.execute("find_similar_cli", service, inputs)
+    return result.results  # type: ignore[return-value]
 
 
 def _handle_answer(
@@ -413,7 +551,11 @@ def _handle_answer(
         return None
 
     # Standard synchronous answer
-    return service.answer(query=args.query, **_build_answer_options(args))
+    inputs = registry.get("answer_cli").inputs_type(
+        query=args.query, options=_build_answer_options(args)
+    )
+    result = registry.execute("answer_cli", service, inputs)
+    return result.answer  # type: ignore[return-value]
 
 
 def _handle_research(
@@ -485,6 +627,115 @@ def _handle_context(
     if args.context_cmd != "query":
         raise ValueError(f"Unknown context subcommand: {args.context_cmd}")
     return service.context(query=args.query, tokens_num=args.tokens_num)
+
+
+def _handle_workflow(
+    service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
+    """Execute workflow subcommands."""
+    if args.workflow_cmd == "list":
+        entries = [{"name": wf.name, "summary": wf.summary} for wf in registry.list()]
+        if args.format == "table":
+            for entry in entries:
+                print(f"{entry['name']}: {entry['summary']}")
+            return None
+        return {"workflows": entries}
+
+    if args.workflow_cmd == "describe":
+        definition = registry.get(args.name)
+        description: dict[str, Any] = {
+            "name": definition.name,
+            "summary": definition.summary,
+        }
+        if args.schema:
+            description["input_schema"] = definition.inputs_type.model_json_schema()
+            description["output_schema"] = definition.outputs_type.model_json_schema()
+        plan_inputs = definition.inputs_type.model_construct()
+        plan = definition.plan(plan_inputs)
+        description["plan"] = [
+            {"name": step.name, "description": step.description} for step in plan
+        ]
+        return description
+
+    if args.workflow_cmd == "run":
+        definition = registry.get(args.name)
+        payload = _resolve_workflow_payload(args, definition)
+        if args.plan or args.dry_run:
+            plan = definition.plan(payload)
+            return {
+                "workflow": definition.name,
+                "plan": [
+                    {"name": step.name, "description": step.description}
+                    for step in plan
+                ],
+            }
+        outputs = registry.execute(args.name, service, payload)
+        return {
+            "workflow": definition.name,
+            "outputs": outputs.model_dump(exclude_none=True),
+        }
+    raise ValueError(f"Unknown workflow subcommand: {args.workflow_cmd}")
+
+
+def _handle_agents(
+    _service: client.ExaService, args: argparse.Namespace
+) -> dict[str, Any] | None:
+    """Execute `agents` subcommands using the Agents SDK integration."""
+    if os.getenv("EXA_DIRECT_ENABLE_OPENAI", "0").lower() not in {"1", "true", "yes"}:
+        raise RuntimeError(
+            "Agents disabled. Set EXA_DIRECT_ENABLE_OPENAI=1 and install openai-agents."
+        )
+    from exa_direct.integrations import agents as agents_module  # lazy import
+
+    if args.agents_cmd != "run":
+        raise ValueError(f"Unknown agents subcommand: {args.agents_cmd}")
+
+    settings_kwargs: dict[str, Any] = {}
+    if getattr(args, "model", None):
+        settings_kwargs["model"] = args.model
+    if getattr(args, "specialist_model", None):
+        settings_kwargs["specialist_model"] = args.specialist_model
+    if getattr(args, "max_turns", None) is not None:
+        settings_kwargs["max_turns"] = args.max_turns
+    settings = agents_module.CoordinatorSettings(
+        model=settings_kwargs.get(
+            "model", os.getenv("EXA_DIRECT_AGENTS_MODEL", "gpt-4.1-mini")
+        ),
+        max_turns=settings_kwargs.get("max_turns"),
+        specialist_model=settings_kwargs.get("specialist_model"),
+    )
+
+    import asyncio as _asyncio
+
+    async def _run():
+        return await agents_module.run_coordinator(
+            args.input,
+            settings=settings,
+            context=agents_module.WorkflowAgentContext(conversation_id=args.session_id),
+            session_id=args.session_id,
+            session_backend=args.session_backend,
+            session_db_path=args.session_db,
+        )
+
+    result = _asyncio.run(_run())
+    return {"final_output": getattr(result, "final_output", None)}
+
+
+def _resolve_workflow_payload(args: argparse.Namespace, definition) -> Any:
+    """Build workflow inputs from CLI parameters."""
+    payload: dict[str, Any] = {}
+    if args.input_payload:
+        content = _read_arg_or_file(args.input_payload)
+        payload.update(json.loads(content))
+    for raw in args.param:
+        if "=" not in raw:
+            raise ValueError(f"Invalid --param format: {raw!r}")
+        key, value = raw.split("=", 1)
+        payload[key] = value
+    try:
+        return definition.inputs_type(**payload)
+    except ValidationError as exc:
+        raise ValueError(str(exc)) from exc
 
 
 def _clean_params(raw: dict[str, Any]) -> dict[str, Any]:

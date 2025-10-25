@@ -38,11 +38,20 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
-### 3. Configure API key
+### 3. Configure environment
 
-```bash
-export EXA_API_KEY=sk-...  # Windows: $env:EXA_API_KEY="sk-..."
-```
+The CLI reads configuration from CLI flags, environment variables, or a local
+`.env` file (loaded automatically at startup). Set the values once and skip
+passing `--api-key` on every command.
+
+| Variable | Purpose | Typical usage |
+| --- | --- | --- |
+| `EXA_API_KEY` | Authenticates Exa API calls (required) | `export EXA_API_KEY=sk-...` or add `EXA_API_KEY=sk-...` to `.env` |
+| `OPENAI_API_KEY` | Enables optional OpenAI Responses/Agents helpers | `export OPENAI_API_KEY=sk-openai-...` |
+| `EXA_DIRECT_ENABLE_OPENAI` | Opt-in flag for Agents integrations | `export EXA_DIRECT_ENABLE_OPENAI=1` |
+
+The loader checks CLI flags first, then environment variables, then any values
+defined in `.env`. All three variables can live in the same `.env` file.
 
 ## Why Use This Instead of MCP?
 
@@ -58,6 +67,10 @@ agents need Exa capabilities, subprocess calls beat MCP servers:
   can't access everything
 - **Easier debugging:** `exa` commands run standalone; test in terminal, paste
   into agent workflows; `--pretty` for inspection, `--save` for large outputs
+
+> Global flags such as `--api-key`, `--pretty`, and `--save` work before or
+> after the subcommand, so examples like `exa search ... --pretty` now parse
+> exactly as written.
 
 ## Quick Start
 
@@ -160,6 +173,36 @@ exa context query --query "React useEffect cleanup" --tokensNum dynamic
 exa context query --query "pandas DataFrame joins" --tokensNum 5000 --pretty
 ```
 
+## Workflow Automation
+
+The workflow engine wraps every command in typed Pydantic models so you can run
+multi-step flows from a single CLI call or expose them via OpenAI tooling:
+
+```bash
+# Inspect available workflows and schemas
+exa workflow list
+exa workflow describe search_collect --schema
+
+# Execute with inline parameters
+exa workflow run search_collect --param query="LLM retrieval" --param fetch_contents=true
+
+# Run with JSON payloads
+exa workflow run research_run --input @examples/research_payload.json
+
+# Preview the plan without executing
+exa workflow run search_collect --plan
+```
+
+- Lifecycle events (`workflow.start`, `workflow.plan`, `workflow.step`,
+  `workflow.succeeded`) are logged via `structlog`. Set
+  `EXA_DIRECT_LOG_FORMAT=console` for local debugging or leave JSON for log
+  aggregation. Redaction is enabled by default and can be disabled with
+  `EXA_DIRECT_LOG_REDACT=0` if you prefer raw payloads.
+- Every workflow’s input/output schema is exported to `docs/schemas` and
+  documented in [docs/workflows/index.md](docs/workflows/index.md).
+- OpenAI Responses and Agents SDK integrations share the same registry:
+  enable with `EXA_DIRECT_ENABLE_OPENAI=1` and provide an `OPENAI_API_KEY`.
+
 **Code-aware RAG:**
 
 - Perfect for retrieving relevant code examples, documentation, and patterns.
@@ -198,6 +241,35 @@ exa answer --query "Latest AI developments" --stream
 - **Future-ready:** When the SDK adds features, exa-direct gains them immediately because the CLI mirrors the
   underlying `exa_py` surface one-to-one.
 
+## Workflow Engine
+
+The new workflow registry powers the `exa workflow` command group, OpenAI Responses function tools, and Agents SDK
+integrations. Use it to orchestrate complex workflows across CLI, Codex CLI, Responses, and Agents.
+
+```bash
+# List available workflows
+exa workflow list
+
+# Inspect schemas and the default execution plan
+exa workflow describe research_run --schema
+
+# Run a workflow with inline parameters
+exa workflow run search_cli --param query="vector databases" --param num_results=5
+
+# Dry-run (plan only) without execution
+exa workflow run research_run --param instructions="Summarize AGI progress" --dry-run
+```
+
+All workflows share the same implementation regardless of surface—CLI,
+Codex CLI (via subprocess), Responses API, or Agents SDK.
+
+### OpenAI Integrations
+
+- Enable integrations by setting `EXA_DIRECT_ENABLE_OPENAI=1` before building Responses function tools
+  or Agents SDK tooling helpers.
+- Use `exa_direct.integrations.responses.workflow_function_tool` to expose any workflow as a Responses function tool.
+- Use `exa_direct.integrations.agents.workflow_tool` to wrap workflows as agent tools in the OpenAI Agents SDK.
+
 ## Use Cases
 
 **Research Agent:** Multi-source synthesis with structured output
@@ -229,7 +301,8 @@ exa contents https://docs.example.com/latest \
 - **Combined operations** (`search_and_contents`, `find_similar_and_contents`)
   reduce round trips
 - **Agent-optimized:** JSON stdout, `--pretty`/`--save` flags, `@file` syntax
-- **Automatic resilience:** HTTP/2, exponential backoff, retry logic
+- **Automatic resilience:** HTTP/2 with automatic HTTP/1 fallback, exponential
+  backoff, retry logic
 
 ## Examples & Documentation
 
@@ -246,6 +319,9 @@ exa contents https://docs.example.com/latest \
 - [Quickstart](docs/users/quickstart.md) - Getting started
 - [Commands](docs/users/commands.md) - CLI reference
 - [Best Practices](docs/users/best_practices.md) - Agent integration patterns
+- [Workflow Engine Guide](docs/workflows/index.md) - Workflow catalog & schemas
+- [Agents SDK Integration](docs/developers/agents.md) - Coordinator & specialists
+- [Agentic Workflows](docs/users/agentic_workflows.md) - Run multi-tool agent orchestration
 - [Architecture](docs/developers/architecture.md) - Implementation details
 
 **Changelog:** [CHANGELOG.md](CHANGELOG.md) - Release notes (latest: v0.1.0)

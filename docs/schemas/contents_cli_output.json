@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the single-step CLI contents workflow.",
+  "properties": {
+    "contents": {
+      "additionalProperties": true,
+      "title": "Contents",
+      "type": "object"
+    }
+  },
+  "required": [
+    "contents"
+  ],
+  "title": "ContentsCLIOutputs",
+  "type": "object"
+}

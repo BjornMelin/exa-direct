@@ -12,6 +12,9 @@ exa contents "$URL1" "$URL2" --text --highlights --livecrawl preferred --pretty
 echo "\n== Fetch with metadata and filter-empty-results =="
 exa contents "$URL1" --metadata --filter-empty-results --pretty
 
+echo "\n== Fetch with custom contents flags =="
+exa contents "$URL1" --contents-flags beta preview --pretty
+
 echo "\n== Summary with schema and subpages targeting =="
 tmp_schema=$(mktemp)
 cat >"$tmp_schema" <<'JSON'

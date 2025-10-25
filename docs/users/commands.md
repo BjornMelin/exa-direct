@@ -6,6 +6,13 @@
 - `--pretty`: Indented JSON output.
 - `--save <file>`: Save JSON to a file.
 
+Global flags can be supplied before or after the subcommand (`exa --pretty search …`
+or `exa search … --pretty`).
+
+If you store `EXA_API_KEY`, `OPENAI_API_KEY`, or `EXA_DIRECT_ENABLE_OPENAI`
+inside a project `.env`, the CLI loads them for you, so passing `--api-key` is
+only required when overriding the default.
+
 ## Search
 
 ```bash
@@ -27,6 +34,9 @@ exa contents https://example.com --text --livecrawl preferred
 Options:
 
 - `--text`, `--highlights`
+- `--summary-query`, `--summary-schema`, `--metadata`, `--metadata-json`
+- `--extras-links`, `--extras-image-links`, `--context`
+- `--filter-empty-results`, `--contents-flags <flag ...>`
 - `--livecrawl`: `always|preferred|fallback|never` (<https://docs.exa.ai/reference/livecrawling-contents>)
 Docs: <https://docs.exa.ai/reference/get-contents>
 

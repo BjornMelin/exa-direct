@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Restore CLI compatibility with `exa_py` dataclass responses by teaching `_to_dict`
+  to normalize dataclasses recursively, eliminating `TypeError` crashes on
+  `search`, `find-similar`, `contents`, and research commands.
+
+## [0.2.0] - 2025-10-20
+
+### Added
+
+- Workflow engine package under `src/exa_direct/workflows/` (definition models, registry, shared steps, built-in
+  workflows) and matching `workflow` CLI subcommands with plan/dry-run support.
+- OpenAI integrations: Responses function-tool helper (`integrations/responses.py`) and Agents SDK wrapper
+  (`integrations/agents.py`) with toggleable service factories and automatic resource cleanup.
+- Developer documentation for the CLI surface (`docs/developers/cli.md`) and structlog configuration (`docs/developers/logging.md`).
+
+### Changed
+
+- All existing CLI commands now execute through the workflow registry,
+  producing canonical JSON envelopes that tests parse directly.
+- Upgraded to `structlog` 25.4.0 and refined the logging pipeline to honor environment toggles, emit workflow
+  lifecycle events, and maintain context via `contextvars`.
+- Hardened workflow tests and CLI integration tests to cover JSON output, workflow execution, and OpenAI feature gating.
+- Documentation index now references the new developer guides and the latest ADRs
+  (0018, 0019); legacy note files were removed after consolidation.
+
+### Tests / Tooling
+
+- Expanded unit coverage around workflow execution, Responses integration, and CLI JSON parsing.
+- Synced dependencies with `openai>=2.5.0`, `openai-agents>=0.4.0`, `requests>=2.32.3`, and regenerated `uv.lock`.
+
 ## [0.1.1] - 2025-10-18
 
 ### Documentation

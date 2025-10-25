@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "description": "Inputs for the ``research_run`` workflow.",
+  "properties": {
+    "instructions": {
+      "description": "Natural-language research request.",
+      "title": "Instructions",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": "exa-research-fast",
+      "description": "Research model to use (exa-research-fast, exa-research, exa-research-pro).",
+      "title": "Model"
+    },
+    "output_schema": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional JSON Schema dict for structured output.",
+      "title": "Output Schema"
+    },
+    "wait_for_completion": {
+      "default": true,
+      "description": "Poll the research task until completion.",
+      "title": "Wait For Completion",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "instructions"
+  ],
+  "title": "ResearchRunInputs",
+  "type": "object"
+}

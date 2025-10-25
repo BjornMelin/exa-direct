@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Outputs for the ``context_build`` workflow.",
+  "properties": {
+    "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+    }
+  },
+  "required": [
+    "context"
+  ],
+  "title": "ContextBuildOutputs",
+  "type": "object"
+}
