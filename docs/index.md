@@ -6,6 +6,7 @@ Documentation is organized for end users and developers.
 ## User Guide
 
 - **Quickstart:** [Quickstart](users/quickstart.md)
+- **Global Install with uv:** [Global Install](users/global-install.md)
 - **Commands & Examples:** [Commands & Examples](users/commands.md)
 - **Integration Recipes:** [Integration Recipes](users/recipes.md)
 - **Troubleshooting:** [Troubleshooting](users/troubleshooting.md)
